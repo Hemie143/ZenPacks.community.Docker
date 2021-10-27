@@ -1,0 +1,54 @@
+name: ZenPacks.community.Docker
+
+classes:
+  DockerContainer:
+    base: [zenpacklib.Component]
+    label: Docker Container (Custom)
+    plural_label: Docker Containers (Custom)
+    order: 1
+    properties:
+      image:
+        label: Image
+      container_id:
+        label: Container ID
+      command:
+        label: Command
+      created:
+        label: Created
+      ports:
+        label: Ports
+      cgroup_path:
+        label: CGroup Path
+        default: /sys/fs/cgroup
+    monitoring_templates:
+      - DockerContainer
+
+class_relationships:
+  - Products.ZenModel.Device.Device 1:MC DockerContainer
+
+device_classes:
+  /Server/SSH:
+    templates:
+      DockerContainer:
+        targetPythonClass: ZenPacks.community.Docker.DockerContainer
+        datasources:
+          containermemory:
+            type: Python
+            plugin_classname: ZenPacks.community.Docker.dsplugins.containers
+            datapoints:
+              limit:
+                rrdtype: GAUGE_MIN_0
+              usage:
+                rrdtype: GAUGE_MIN_0
+        graphs:
+          Memory Usage:
+            units: bytes
+            miny: 0
+            base: true
+            graphpoints:
+              Limit:
+                dpName: containermemory_limit
+                format: "%7.2lf%s"
+              Used:
+                dpName: containermemory_usage
+                format: "%7.2lf%s"
