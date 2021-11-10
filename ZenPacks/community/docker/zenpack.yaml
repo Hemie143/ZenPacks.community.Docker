@@ -1,25 +1,49 @@
 name: ZenPacks.community.Docker
 
+zProperties:
+  DEFAULTS:
+    category: DockerCustom
+
+  zDockerPersistDuration:
+    type: int
+    default: 12
+    description: Defines in hours how long a container should remain at least visible in Zenoss
+
 classes:
   DockerContainer:
     base: [zenpacklib.Component]
-    label: Docker Container (Custom)
-    plural_label: Docker Containers (Custom)
+    label: Docker Volatile Container
     order: 1
     properties:
+      container_status:
+        label: Status
+        default: UNKNOWN
+        grid_display: true
+        order: 1
       image:
         label: Image
+        order: 2
       container_id:
         label: Container ID
+        order: 3
       command:
         label: Command
+        order: 4
       created:
         label: Created
+        order: 5
       ports:
         label: Ports
+        order: 6
       cgroup_path:
         label: CGroup Path
         default: /sys/fs/cgroup
+        order: 7
+      last_seen:
+        label: Last seen
+        type: int
+        datapoint: stats_last_seen
+        grid_display: false
     monitoring_templates:
       - DockerContainer
 
@@ -32,13 +56,31 @@ device_classes:
       DockerContainer:
         targetPythonClass: ZenPacks.community.Docker.DockerContainer
         datasources:
-          containermemory:
+          stats:
             type: Python
-            plugin_classname: ZenPacks.community.Docker.dsplugins.containers
+            plugin_classname: ZenPacks.community.Docker.dsplugins.containers.stats
+            cycletime: 120
             datapoints:
-              limit:
+              # CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
+              last_seen:
                 rrdtype: GAUGE_MIN_0
-              usage:
+              cpu_usage_percent:
+                rrdtype: GAUGE_MIN_0_MAX_100
+              memory_limit:
+                rrdtype: GAUGE_MIN_0
+              memory_usage:
+                rrdtype: GAUGE_MIN_0
+              memory_usage_percent:
+                rrdtype: GAUGE_MIN_0_MAX_100
+              network_inbound:
+                rrdtype: GAUGE_MIN_0
+              network_outbound:
+                rrdtype: GAUGE_MIN_0
+              block_read:
+                rrdtype: GAUGE_MIN_0
+              block_write:
+                rrdtype: GAUGE_MIN_0
+              num_procs:
                 rrdtype: GAUGE_MIN_0
         graphs:
           Memory Usage:
@@ -47,8 +89,8 @@ device_classes:
             base: true
             graphpoints:
               Limit:
-                dpName: containermemory_limit
+                dpName: stats_memory_limit
                 format: "%7.2lf%s"
               Used:
-                dpName: containermemory_usage
+                dpName: stats_memory_usage
                 format: "%7.2lf%s"

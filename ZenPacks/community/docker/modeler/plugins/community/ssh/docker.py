@@ -1,25 +1,18 @@
 # stdlib Imports
-import json
-import re
-import os
 import logging
+import os
+import re
+import time
 
 # Zenoss Imports
-import Globals
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
-from Products.Zuul import getFacade
-from Products.ZenUtils.Utils import unused
+from Products.Zuul.interfaces import ICatalogTool
 
 # Twisted Imports
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web.client import Agent, readBody
-from twisted.web.http_headers import Headers
-from twisted.cred.error import UnauthorizedLogin
 
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
-# from ZenPacks.community.Docker.modeler.sshPlugin import sshPlugin
 
 log = logging.getLogger('zen.DockerPlugin')
 
@@ -35,6 +28,8 @@ class docker(PythonPlugin):
         'zCommandPort',
         'zCommandCommandTimeout',
         'zKeyPath',
+        'zDockerPersistDuration',
+        'getContainers',
     )
 
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
@@ -66,6 +61,7 @@ class docker(PythonPlugin):
     def collect(self, device, log):
         """Asynchronously collect data from device. Return a deferred/"""
         log.info('Collecting docker containers for device {}'.format(device.id))
+
         if (device.zCommandUsername == ''):
             log.warn('zCommandUsername is empty.')
             returnValue(None)
@@ -113,28 +109,27 @@ class docker(PythonPlugin):
         log.debug('results: {}'.format(results))
         returnValue(results)
 
-        '''
-        agent = Agent(reactor)
-        headers = {
-                   "Accept": ['application/json'],
-                   }
-
-        try:
-            url = 'http://{}:{}/{}'.format(device.id, "8080", "/")
-            log.debug('SBA url: {}'.format(url))
-            # response = yield agent.request('GET', url, Headers(headers))
-            http_code = response.code
-            log.debug('SBA http_code: {}'.format(http_code))
-            response_body = yield readBody(response)
-            response_body = json.loads(response_body)
-        except Exception, e:
-            log.error('%s: %s', device.id, e)
-            returnValue(None)
-        returnValue([http_code, response_body])
-        '''
-
-
     def process(self, device, results, log):
+        # TODO: components should stay for a while, even if containers are already removed
+        # TODO: cgroup check is maybe not required, if using docker stats
+
+        log.debug('device: {}'.format(device))
+        log.debug('device: {}'.format(type(device)))
+        log.debug('device: {}'.format(device.__dict__))
+        log.debug('device: {}'.format(dir(device)))
+
+        current_containers = device.getContainers
+        log.debug('getContainers: {}'.format(current_containers))
+        log.debug('getContainers: {}'.format(type(current_containers)))
+
+        # test = ICatalogTool(device).search
+        '''
+        test = None
+
+        log.debug('device: {}'.format(test))
+        log.debug('device: {}'.format(type(test)))
+        '''
+        # log.debug('device: {}'.format(device.getComponentTree()))
 
         rm = []
         log.debug('***cgroup: {}'.format('cgroup' in results))
@@ -142,23 +137,22 @@ class docker(PythonPlugin):
             log.debug('***cgroup: {}'.format(results['cgroup']))
             cgroup_path = self.model_cgroup(results['cgroup'])
             if 'containers' in results:
-                container_maps = self.model_containers(results['containers'], cgroup_path)
+                try:
+                    dockerPersistDuration = int(device.zDockerPersistDuration)
+                except:
+                    dockerPersistDuration = 24
+
+                container_maps = self.model_containers(results['containers'], current_containers, dockerPersistDuration,
+                                                       cgroup_path)
                 rm.extend(container_maps)
 
-
-        '''
-        for item, result in results.items():
-            log.debug('***item: {}'.format(item))
-            if item == 'containers':
-                container_maps = self.model_containers(result)
-                rm.extend(container_maps)
-        '''
-
-        log.debug('rm: {}'.format(rm))
+        # log.debug('rm: {}'.format(rm))
+        # rm = []
         return rm
 
     def model_cgroup(self, result):
-        log.debug('cgroup result: {}'.format(result.__dict__))
+        # TODO: user parser in lib
+        # log.debug('cgroup result: {}'.format(result.__dict__))
         if result.exitCode > 0:
             log.error('Could not get cgroup fs (exitcode={}) - Error: {}'.format(result.exitCode, result.stderr))
             return ''
@@ -175,8 +169,9 @@ class docker(PythonPlugin):
         else:
             return ''
 
-
-    def model_containers(self, result, cgroup_path):
+    def model_containers(self, result, current_containers, dockerPersistDuration, cgroup_path):
+        # TODO: user parser in lib
+        # TODO: modeler should at least create one placeholder instance, otherwise the collector won't run
         expected_columns = set([
             "CONTAINER ID",
             "IMAGE",
@@ -184,8 +179,9 @@ class docker(PythonPlugin):
             "CREATED",
             "PORTS",
             "NAMES",
+            "STATUS",
         ])
-        log.debug('containers result: {}'.format(result.__dict__))
+        # log.debug('containers result: {}'.format(result.__dict__))
         if result.exitCode > 0:
             log.error('Could not list containers (exitcode={}) - Error: {}'.format(result.exitCode, result.stderr))
             return []
@@ -208,21 +204,51 @@ class docker(PythonPlugin):
             for i, c in enumerate(columns)}
         log.debug('column_indexes : {}'.format(column_indexes))
 
+        now = int(time.time())
+        log.debug('***now: {}'.format(now))
+        log.debug('***now: {}'.format(type(now)))
+
         rm = []
         containers_maps = []
+        log.debug('Containers: {}'.format(len(container_lines)))
+        # container_lines = container_lines[:5]
+        log.debug('Containers: {}'.format(len(container_lines)))
+        log.debug('current_containers 1: {}'.format(len(current_containers)))
+
+        # Model the containers that have been detected
         for container in container_lines:
             c_data = {column: container[start:end].strip() for column, (start, end) in column_indexes.items()}
+            container_id = c_data["CONTAINER ID"]
+            instance_id = self.prepId('container_{}'.format(container_id))
+            current_containers.pop(instance_id, None)
+
             c_instance = ObjectMap()
-            instance_id = c_data["CONTAINER ID"]
-            c_instance.id = 'container_{}'.format(instance_id)
-            c_instance.container_id = instance_id
+            c_instance.id = instance_id
+            c_instance.container_id = container_id
             c_instance.title = c_data["NAMES"]
+            # created, restarting, running, removing, paused, exited, or dead
+            # status = c_data["STATUS"].split(' ')[0].upper()
+            c_instance.container_status = c_data["STATUS"].split(' ')[0].upper()
             c_instance.image = c_data["IMAGE"]
             c_instance.command = c_data["COMMAND"]
             c_instance.created = c_data["CREATED"]
             c_instance.ports = c_data["PORTS"]
             c_instance.cgroup_path = cgroup_path
+            # c_instance.last_seen = now
             containers_maps.append(c_instance)
+
+        # For other existing containers, check that they remain a while after they were last seen
+        log.debug('seen containers: {}'.format(len(containers_maps)))
+        log.debug('keep containers: {}'.format(len(current_containers)))
+
+        time_limit = now - dockerPersistDuration * 3600
+        for instance_id, last_seen in current_containers.items():
+            log.debug('existing container: {} - {}'.format(last_seen, instance_id))
+            # TODO: Check that last_seen is valid
+            if last_seen > time_limit:
+                c_instance = ObjectMap()
+                c_instance.id = instance_id
+                containers_maps.append(c_instance)
 
         rm.append(RelationshipMap(compname='',
                                   relname='dockerContainers',
