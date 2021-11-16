@@ -1,4 +1,4 @@
-"""02 Models locations using the National Weather Service API."""
+"""Models locations using the National Weather Service API. 02"""
 
 # stdlib Imports
 import json
@@ -13,21 +13,45 @@ from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 
 
 class docker(PythonPlugin):
-    """NWS Stations modeler plugin."""
-
-    relname = 'dockerContainers'
-    modname = 'ZenPacks.community.Docker'
+    """docker containers modeler plugin."""
 
     requiredProperties = (
-        'zNwsStates',
+        'zCommandUsername',
+        'zCommandPassword',
+        'zCommandPort',
+        'zCommandCommandTimeout',
+        'zKeyPath',
+        'zDockerPersistDuration',
     )
 
-    #deviceProperties = PythonPlugin.deviceProperties + requiredProperties
+    deviceProperties = PythonPlugin.deviceProperties + requiredProperties
+
+    clients = {}
+
+    commands = {
+        'version': 'docker -v',
+        'containers': 'sudo docker ps -a --no-trunc',
+        'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
+    }
+
+    # Still working  
 
     @inlineCallbacks
     def collect(self, device, log):
         """Asynchronously collect data from device. Return a deferred."""
-        log.info("%s: collecting data***************************", device.id)
+        log.info('Collecting docker containers for device {}'.format(device.id))
+
+        if (device.zCommandUsername == ''):
+            log.warn('zCommandUsername is empty.')
+            returnValue(None)
+        if (device.zCommandPassword == ''):
+            log.warn('zCommandPassword is empty, trying key authentication using %s', device.zKeyPath)
+        keyPath = os.path.expanduser(device.zKeyPath)
+        if os.path.isfile(keyPath):
+            log.info('SSH key found.')
+        else:
+            if device.zCommandPassword is None or device.zCommandPassword == '':
+                returnValue(None)
 
         NwsStates = getattr(device, 'zNwsStates', None)
         if not NwsStates:
@@ -37,6 +61,7 @@ class docker(PythonPlugin):
                 'zNwsStates')
 
             returnValue(None)
+
         requests = []
         responses = []
 
