@@ -149,6 +149,7 @@ class docker(PythonPlugin):
         """Process results. Return iterable of datamaps or None."""
 
         current_containers = {}
+        # current_containers = device.getContainers
 
         rm = []
         log.debug('***cgroup: {}'.format('cgroup' in results))
@@ -162,7 +163,9 @@ class docker(PythonPlugin):
                 except:
                     dockerPersistDuration = 24
 
-                container_maps = self.model_containers(results['containers'], current_containers, dockerPersistDuration,
+                container_maps = self.model_containers(results['containers'],
+                                                       current_containers,
+                                                       dockerPersistDuration,
                                                        cgroup_path)
                 rm.extend(container_maps)
 
@@ -211,9 +214,9 @@ class docker(PythonPlugin):
 
         rm = []
         containers_maps = []
-        log.debug('Containers: {}'.format(len(container_lines)))
+        log.debug('Containers listed: {}'.format(len(container_lines)))
         container_lines = container_lines[:5]
-        log.debug('Containers: {}'.format(len(container_lines)))
+        log.debug('Containers listed: {}'.format(len(container_lines)))
         log.debug('current_containers 1: {}'.format(len(current_containers)))
 
         # Model the containers that have been detected
@@ -242,7 +245,7 @@ class docker(PythonPlugin):
         log.debug('seen containers: {}'.format(len(containers_maps)))
         log.debug('keep containers: {}'.format(len(current_containers)))
 
-        time_limit = now - dockerPersistDuration * 3600
+        time_limit = now - int(dockerPersistDuration * 3600)
         for instance_id, last_seen in current_containers.items():
             log.debug('existing container: {} - {}'.format(last_seen, instance_id))
             # TODO: Check that last_seen is valid
@@ -256,35 +259,4 @@ class docker(PythonPlugin):
                                   modname='ZenPacks.community.Docker.DockerContainer',
                                   objmaps=containers_maps,
                                   ))
-        return rm
-
-
-
-
-        rm = self.relMap()
-
-        (generalResults, detailedRawResults) = results
-
-        detailedResults = {}
-        for result in detailedRawResults:
-            result = json.loads(result[1])
-            id = self.prepId(result['properties']['stationIdentifier'])
-            detailedResults[id] = result['properties']
-        for result in generalResults:
-            for stationResult in result.get('features'):
-                id = self.prepId(stationResult['properties']['stationIdentifier'])
-                zoneLink = detailedResults.get(id, {}).get('forecast', '')
-                countyLink = detailedResults.get(id, {}).get('county', '')
-
-                rm.append(self.objectMap({
-                    'id': id,
-                    'station_id': id,
-                    'title': stationResult['properties']['name'],
-                    'longitude': stationResult['geometry']['coordinates'][0],
-                    'latitude': stationResult['geometry']['coordinates'][1],
-                    'timezone': stationResult['properties']['timeZone'],
-                    'county': countyLink.split('/')[-1],
-                    'nws_zone': zoneLink.split('/')[-1],
-                }))
-
         return rm
