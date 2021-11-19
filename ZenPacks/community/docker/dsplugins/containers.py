@@ -20,5 +20,3 @@ class stats(PythonDataSourcePlugin):
         log.debug('Success - results is {}'.format(results))
         data = self.new_data()
         return data
-
-

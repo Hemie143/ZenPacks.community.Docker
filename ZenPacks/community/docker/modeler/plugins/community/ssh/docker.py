@@ -3,6 +3,8 @@
 # stdlib Imports
 import json
 import urllib
+import os
+import logging
 
 # Twisted Imports
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
@@ -11,6 +13,9 @@ from twisted.web.client import getPage
 # Zenoss Imports
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 
+from ZenPacks.community.Docker.lib.sshclient import SSHClient
+
+log = logging.getLogger('zen.DockerPlugin')
 
 class docker(PythonPlugin):
     """docker containers modeler plugin."""
@@ -34,11 +39,27 @@ class docker(PythonPlugin):
         'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
     }
 
-    # Still working  
+    # Still working
+
+    @classmethod
+    def getClient(cls, config):
+        h = config['hostname']
+        if h in cls.clients:
+            log.debug('Using cached sshclient connection for {}:{}'.format(h, config['port']))
+            return cls.clients[h]
+        else:
+            log.debug('Creating new sshclient connection for {}:{}'.format(h, config['port']))
+            cls.clients[h] = SSHClient(config)
+            try:
+                cls.clients[h].connect()
+            except:
+                pass
+        return cls.clients[h]
 
     @inlineCallbacks
     def collect(self, device, log):
         """Asynchronously collect data from device. Return a deferred."""
+        log.info('Collecting docker containers for device {}'.format(device.id))
         log.info('Collecting docker containers for device {}'.format(device.id))
 
         if (device.zCommandUsername == ''):
@@ -52,6 +73,39 @@ class docker(PythonPlugin):
         else:
             if device.zCommandPassword is None or device.zCommandPassword == '':
                 returnValue(None)
+
+        options = {'hostname': str(device.manageIp),
+                   'port': device.zCommandPort,
+                   'user': device.zCommandUsername,
+                   'password': device.zCommandPassword,
+                   'identities': [keyPath],
+                   'buffersize': 32768,
+                   }
+
+        timeout = device.zCommandCommandTimeout
+        if timeout:
+            timeout = int(timeout)
+        else:
+            timeout = 15
+
+        client = self.getClient(options)
+        log.debug('client: {}'.format(type(client)))
+        log.debug('client: {}'.format(client))
+
+        results = {}
+        for item, cmd in self.commands.items():
+            try:
+                # results = yield producer.getResults()
+                response = yield client.run(cmd, timeout=timeout)
+                results[item] = response
+                # log.debug('results: {}'.format(results))
+                # log.debug('results: {}'.format(results.__dict__))
+            except Exception, e:
+                log.error("{} {} docker modeler error: {}".format(device.id, self.name(), e))
+        log.debug('results: {}'.format(results))
+        returnValue(results)
+
+        # TODO: remove next block
 
         NwsStates = getattr(device, 'zNwsStates', None)
         if not NwsStates:
