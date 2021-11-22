@@ -39,8 +39,13 @@ classes:
         label: CGroup Path
         default: /sys/fs/cgroup
         order: 7
-      last_seen:
-        label: Last seen
+      last_seen_model:
+        label: Last seen Model
+        type: int
+        grid_display: false
+        default: 0
+      last_seen_collect:
+        label: Last seen Collect
         type: int
         datapoint: stats_last_seen
         grid_display: false

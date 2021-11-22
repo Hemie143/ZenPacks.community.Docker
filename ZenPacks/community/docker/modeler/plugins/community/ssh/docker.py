@@ -30,6 +30,7 @@ class docker(PythonPlugin):
         'zCommandCommandTimeout',
         'zKeyPath',
         'zDockerPersistDuration',
+        'getContainers',
     )
 
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
@@ -108,48 +109,12 @@ class docker(PythonPlugin):
         log.debug('results: {}'.format(results))
         returnValue(results)
 
-        # TODO: remove next block
-
-        NwsStates = getattr(device, 'zNwsStates', None)
-        if not NwsStates:
-            log.error(
-                "%s: %s not set.",
-                device.id,
-                'zNwsStates')
-
-            returnValue(None)
-
-        requests = []
-        responses = []
-
-        for NwsState in NwsStates:
-            if NwsState:
-                try:
-                    response = yield getPage(
-                        'https://api.weather.gov/stations?state={query}'
-                            .format(query=urllib.quote(NwsState)))
-                    response = json.loads(response)
-                    responses.append(response)
-                except Exception, e:
-                    log.error(
-                        "%s: %s", device.id, e)
-                    returnValue(None)
-
-                requests.extend([
-                    getPage(
-                        'https://api.weather.gov/stations/{query}'
-                            .format(query=urllib.quote(result['properties']['stationIdentifier']))
-                    )
-                    for result in response.get('features')
-                ])
-        results = yield DeferredList(requests, consumeErrors=True)
-        returnValue((responses, results))
-
     def process(self, device, results, log):
         """Process results. Return iterable of datamaps or None."""
 
-        current_containers = {}
-        # current_containers = device.getContainers
+        # current_containers = {}
+        current_containers = device.getContainers
+        log.debug('current_containers: {}'.format(current_containers))
 
         rm = []
         log.debug('***cgroup: {}'.format('cgroup' in results))
@@ -174,7 +139,8 @@ class docker(PythonPlugin):
         return rm
 
     def model_containers(self, result, current_containers, dockerPersistDuration, cgroup_path):
-        # TODO: user parser in lib
+        # TODO: use parser in lib
+        # TODO: clean up code
         # TODO: modeler should at least create one placeholder instance, otherwise the collector won't run
         expected_columns = set([
             "CONTAINER ID",
@@ -238,21 +204,26 @@ class docker(PythonPlugin):
             c_instance.created = c_data["CREATED"]
             c_instance.ports = c_data["PORTS"]
             c_instance.cgroup_path = cgroup_path
-            # c_instance.last_seen = now
+            c_instance.last_seen_model = now
+            log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)
 
         # For other existing containers, check that they remain a while after they were last seen
         log.debug('seen containers: {}'.format(len(containers_maps)))
-        log.debug('keep containers: {}'.format(len(current_containers)))
+        log.debug('old containers: {}'.format(len(current_containers)))
 
         time_limit = now - int(dockerPersistDuration * 3600)
         for instance_id, last_seen in current_containers.items():
             log.debug('existing container: {} - {}'.format(last_seen, instance_id))
             # TODO: Check that last_seen is valid
-            if last_seen > time_limit:
+            keep_count = 0
+            if last_seen['model'] and last_seen['model'] > time_limit:
                 c_instance = ObjectMap()
                 c_instance.id = instance_id
                 containers_maps.append(c_instance)
+                keep_count += 1
+        log.debug('keeping old containers: {}'.format(keep_count))
+        log.debug('total containers: {}'.format(len(containers_maps)))
 
         rm.append(RelationshipMap(compname='',
                                   relname='dockerContainers',
