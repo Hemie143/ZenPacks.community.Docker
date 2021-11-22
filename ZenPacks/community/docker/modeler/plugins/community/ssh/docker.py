@@ -181,7 +181,7 @@ class docker(PythonPlugin):
         rm = []
         containers_maps = []
         log.debug('Containers listed: {}'.format(len(container_lines)))
-        container_lines = container_lines[:5]
+        # container_lines = container_lines[:5]
         log.debug('Containers listed: {}'.format(len(container_lines)))
         log.debug('current_containers 1: {}'.format(len(current_containers)))
 

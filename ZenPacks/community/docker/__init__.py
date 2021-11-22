@@ -9,6 +9,7 @@ schema = CFG.zenpack_module.schema
 
 log = logging.getLogger('zen.DockerInit')
 
+'''
 @monkeypatch("Products.ZenModel.Device.Device")
 def getContainers(self):
     # TODO: clean up logging
@@ -21,11 +22,11 @@ def getContainers(self):
     test = {c.id: {'model':c.last_seen_model, 'collect':c.last_seen_collect()} for c in self.dockerContainers()}
     log.info('cc.test: {}'.format(test))
     return test
+'''
 
 # Patch last to avoid import recursion problems.
 # TODO: Move patch
-'''
+
 from Products.ZenUtils.Utils import unused
 from . import patches
 unused(patches)
-'''
