@@ -160,6 +160,7 @@ class stats(PythonDataSourcePlugin):
                 c_id = 'container_{}'.format(container["CONTAINER ID"])
                 data['values'][c_id]['stats_last_seen'] = now
 
+                # CPU
                 cpu_perc = container["CPU %"]
                 r = re.match(r'(\d+\.\d+).*', cpu_perc)
                 if r:
@@ -167,6 +168,7 @@ class stats(PythonDataSourcePlugin):
                 log.debug('cpu_perc: {}'.format(value))
                 data['values'][c_id]['stats_cpu_usage_percent'] = value
 
+                # MEM USAGE / LIMIT
                 mem_metrics = container["MEM USAGE / LIMIT"]
                 log.debug('mem_metrics: **{}**'.format(mem_metrics))
                 r = re.match(r'(\d+\.?\d*)(\w+)\s\/\s(\d+\.?\d*)(\w+)', mem_metrics)
@@ -182,6 +184,7 @@ class stats(PythonDataSourcePlugin):
                     data['values'][c_id]['stats_memory_limit'] = 0
                     data['values'][c_id]['stats_memory_usage'] = 0
 
+                # MEM %
                 mem_perc = container["MEM %"]
                 r = re.match(r'(\d+\.\d+).*', mem_perc)
                 if r:
@@ -189,9 +192,23 @@ class stats(PythonDataSourcePlugin):
                 log.debug('mem_perc: {}'.format(value))
                 data['values'][c_id]['stats_memory_usage_percent'] = value
 
+                # NET I/O
                 metric1, metric2 = self.stats_pair(container["NET I/O"])
                 data['values'][c_id]['stats_network_inbound'] = metric1
                 data['values'][c_id]['stats_network_outbound'] = metric2
+
+                # BLOCK I / O
+                metric1, metric2 = self.stats_pair(container["BLOCK I/O"])
+                data['values'][c_id]['stats_block_read'] = metric1
+                data['values'][c_id]['stats_block_write'] = metric2
+
+                # PIDS
+                pids = container["PIDS"]
+                r = re.match(r'(\d+).*', pids)
+                if r:
+                    value = float(r.group(1))
+                log.debug('pids: {}'.format(value))
+                data['values'][c_id]['stats_num_procs'] = value
 
 
         # Build full maps for new containers
