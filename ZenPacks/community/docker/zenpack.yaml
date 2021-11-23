@@ -96,6 +96,8 @@ device_classes:
               Limit:
                 dpName: stats_memory_limit
                 format: "%7.2lf%s"
+                sequence: 1
               Used:
                 dpName: stats_memory_usage
                 format: "%7.2lf%s"
+                sequence: 2
