@@ -244,3 +244,4 @@ class docker(PythonPlugin):
                                   objmaps=containers_maps,
                                   ))
         return rm
+
