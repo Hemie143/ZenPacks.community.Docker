@@ -91,7 +91,6 @@ device_classes:
           CPU Usage:
             units: percent
             miny: 0
-            maxy: 100
             graphpoints:
               CPU Usage:
                 dpName: stats_cpu_usage_percent

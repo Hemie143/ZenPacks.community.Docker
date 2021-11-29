@@ -1,5 +1,9 @@
 import re
 import math
+import logging
+
+log = logging.getLogger('zen.DockerParsers')
+
 
 def get_cgroup_path(output):
     output = output.strip().splitlines()
@@ -89,6 +93,58 @@ def get_container_stats(output, log):
         result.append({column: container[start:end].strip() for column, (start, end) in column_indexes.items()})
     return result
 
+
+def parse_docker_output(output, expected_columns):
+    output = output.strip().splitlines()
+    if not output or len(output) <= 1:
+        log.error('Could not list containers - Result: {}'.format(result.output))
+        return []
+    header_line = output[0]
+    container_lines = output[1:]
+    columns = re.split(r' {2,}', header_line)
+    log.debug('columns : {}'.format(columns))
+    if not set(expected_columns).issubset((columns)):
+        log.error('Missing column(s) while parsing output: {}'.format(','.join(list(expected_columns - set(columns)))))
+        return []
+    column_indexes = {
+        c: (
+            header_line.find(c),
+            header_line.find(columns[i + 1]) if i + 1 < len(columns) else None)
+        for i, c in enumerate(columns)}
+    log.debug('column_indexes : {}'.format(column_indexes))
+
+    # TODO: List comprehension
+    result = []
+    for container in container_lines:
+        result.append({column: container[start:end].strip() for column, (start, end) in column_indexes.items()})
+    return result
+
+def get_docker_data(output, command):
+    # TODO: create dict containing columns definitions for matching commands
+    if command.upper() == 'PS':
+        ps_columns = set([
+            "CONTAINER ID",
+            "IMAGE",
+            "COMMAND",
+            "CREATED",
+            "PORTS",
+            "NAMES",
+        ])
+        return parse_docker_output(output, ps_columns)
+    elif command.upper() == 'STATS':
+        stats_columns = set([
+            "CONTAINER ID",
+            "NAME",
+            "CPU %",
+            "MEM USAGE / LIMIT",
+            "MEM %",
+            "NET I/O",
+            "BLOCK I/O",
+            "PIDS",
+        ])
+        return parse_docker_output(output, stats_columns)
+    else:
+        log.error('Could not parse the output of type {}'.format(command))
 
 def convert_size(size_bytes):
     if size_bytes == 0:

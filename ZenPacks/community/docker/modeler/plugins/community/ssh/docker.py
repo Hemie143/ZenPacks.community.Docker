@@ -31,6 +31,7 @@ class docker(PythonPlugin):
         'zKeyPath',
         'zDockerPersistDuration',
         'getContainers',
+        'getContainers_lastSeen',
     )
 
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
@@ -42,8 +43,6 @@ class docker(PythonPlugin):
         'containers': 'sudo docker ps -a --no-trunc',
         'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
     }
-
-    # Still working
 
     @classmethod
     def getClient(cls, config):
@@ -63,7 +62,6 @@ class docker(PythonPlugin):
     @inlineCallbacks
     def collect(self, device, log):
         """Asynchronously collect data from device. Return a deferred."""
-        log.info('Collecting docker containers for device {}'.format(device.id))
         log.info('Collecting docker containers for device {}'.format(device.id))
 
         if (device.zCommandUsername == ''):
@@ -234,7 +232,7 @@ class docker(PythonPlugin):
             c_instance.id = 'container_PLACEHOLDER'
             c_instance.title = 'PLACEHOLDER (Not a real container)'
             c_instance.container_status = 'EXITED'
-            c_instance.last_seen_model = now
+            c_instance.last_seen_model = 0
             log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)
 
@@ -244,4 +242,3 @@ class docker(PythonPlugin):
                                   objmaps=containers_maps,
                                   ))
         return rm
-
