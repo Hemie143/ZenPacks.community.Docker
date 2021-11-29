@@ -213,10 +213,11 @@ class docker(PythonPlugin):
         log.debug('old containers: {}'.format(len(current_containers)))
 
         time_limit = now - int(dockerPersistDuration * 3600)
+        keep_count = 0
         for instance_id, last_seen in current_containers.items():
             log.debug('existing container: {} - {}'.format(last_seen, instance_id))
+            # TODO: If placeholder is present, delete it
             # TODO: Check that last_seen is valid
-            keep_count = 0
             if last_seen['model'] and last_seen['model'] > time_limit:
                 c_instance = ObjectMap()
                 c_instance.id = instance_id
@@ -224,6 +225,18 @@ class docker(PythonPlugin):
                 keep_count += 1
         log.debug('keeping old containers: {}'.format(keep_count))
         log.debug('total containers: {}'.format(len(containers_maps)))
+
+        containers_maps = []
+
+        # If no container is present, create a placeholder so that the datasource is running
+        if len(containers_maps) == 0:
+            c_instance = ObjectMap()
+            c_instance.id = 'container_PLACEHOLDER'
+            c_instance.title = 'PLACEHOLDER (Not a real container)'
+            c_instance.container_status = 'EXITED'
+            c_instance.last_seen_model = now
+            log.debug('c_instance: {}'.format(c_instance))
+            containers_maps.append(c_instance)
 
         rm.append(RelationshipMap(compname='',
                                   relname='dockerContainers',
