@@ -66,24 +66,6 @@ class stats(PythonDataSourcePlugin):
             datasource.plugin_classname,
         )
 
-    @staticmethod
-    def stats_pair(metrics_data):
-        log.debug('metrics_data: **{}**'.format(metrics_data))
-        r = re.match(r'(\d+\.?\d*)(\w+)\s\/\s(\d+\.?\d*)(\w+)', metrics_data)
-        log.debug('r: **{}**'.format(r))
-        if r:
-            val1 = convert_from_human(r.group(1), r.group(2))
-            log.debug('val1: {}'.format(val1))
-            # data['values'][c_id]['stats_network_inbound'] = usage
-            val2 = convert_from_human(r.group(3), r.group(4))
-            log.debug('val2: {}'.format(val2))
-            # data['values'][c_id]['stats_network_outbound'] = limit
-        else:
-            val1 = 0
-            val2 = 0
-            # data['values'][c_id]['stats_network_inbound'] = 0
-            # data['values'][c_id]['stats_network_outbound'] = 0
-        return val1, val2
 
     @inlineCallbacks
     def collect(self, config):
@@ -128,11 +110,6 @@ class stats(PythonDataSourcePlugin):
         log.debug('results: {}'.format(results))
         returnValue(results)
 
-        '''
-        yield True
-        returnValue(0)
-        '''
-
     def onSuccess(self, results, config):
         log.debug('Success - results is {}'.format(results))
         data = self.new_data()
@@ -175,67 +152,8 @@ class stats(PythonDataSourcePlugin):
         log.debug('XXX Created mapping for {} containers'.format(len(containers_maps)))
         log.debug('XXX remaining_instances: {}'.format(remaining_instances))
         log.debug('XXX remaining_instances: {}'.format(len(remaining_instances)))
-
-        '''
-        # Fill in metrics for found containers
-        if 'stats' in results:
-            if results['stats'].exitCode == 0:
-                stats_data = get_container_stats(results['stats'].output, log)
-                # log.debug('stats_data: {}'.format(stats_data))
-                # stats_data = stats_data[:45]
-            else:
-                stats_data = []
-                log.error('Could not collect containers on {}: (code:{}) {}'.format(config.id,
-                                                                                    results['stats'].exitCode,
-                                                                                    results['stats'].output))
-
-            log.debug('XXX Updating metrics for {} containers'.format(len(stats_data)))
-            for container in stats_data:
-                # CONTAINER ID - NAME - CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
-                log.debug('container: {}'.format(container))
-                c_id = 'container_{}'.format(container["CONTAINER ID"])
-                data['values'][c_id]['stats_last_seen'] = 0
-
-                # CPU
-                cpu_perc = container["CPU %"]
-                r = re.match(r'(\d+\.\d+).*', cpu_perc)
-                if r:
-                    value = float(r.group(1))
-                log.debug('cpu_perc: {}'.format(value))
-                data['values'][c_id]['stats_cpu_usage_percent'] = value
-
-                # MEM USAGE / LIMIT
-                metric1, metric2 = self.stats_pair(container["MEM USAGE / LIMIT"])
-                data['values'][c_id]['stats_memory_usage'] = metric1
-                data['values'][c_id]['stats_memory_limit'] = metric2
-
-                # MEM %
-                mem_perc = container["MEM %"]
-                r = re.match(r'(\d+\.\d+).*', mem_perc)
-                if r:
-                    value = float(r.group(1))
-                data['values'][c_id]['stats_memory_usage_percent'] = value
-
-                # NET I/O
-                metric1, metric2 = self.stats_pair(container["NET I/O"])
-                data['values'][c_id]['stats_network_inbound'] = metric1
-                data['values'][c_id]['stats_network_outbound'] = metric2
-
-                # BLOCK I / O
-                metric1, metric2 = self.stats_pair(container["BLOCK I/O"])
-                data['values'][c_id]['stats_block_read'] = metric1
-                data['values'][c_id]['stats_block_write'] = metric2
-
-                # PIDS
-                pids = container["PIDS"]
-                r = re.match(r'(\d+).*', pids)
-                if r:
-                    value = float(r.group(1))
-                data['values'][c_id]['stats_num_procs'] = value
-
-
-        # Build full maps for new containers
-
+        # Check if remaining instances have expired
+        containers_maps.extend(self.model_remaining_containers(remaining_instances, containers_lastseen, time_expiry))
 
         # There must be at least one placeholder instance or the collector won't run. Emptying the list is suicide
         # containers_maps = []
@@ -249,6 +167,41 @@ class stats(PythonDataSourcePlugin):
             c_instance.last_seen_model = 0
             log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)
+
+        # Fill in metrics for found containers
+        # Let's suppose that the containers in stats are identical to those found in the ps output
+        # TODO: Don't re-use the remaining_instances variable
+        if 'stats' in results:
+            if results['stats'].exitCode == 0:
+                # stats_data = get_container_stats(results['stats'].output, log)
+                stats_data = get_docker_data(results['stats'].output, 'STATS')
+
+                # log.debug('stats_data: {}'.format(stats_data))
+                # stats_data = stats_data[:45]
+            else:
+                stats_data = []
+                log.error('Could not collect containers on {}: (code:{}) {}'.format(config.id,
+                                                                                    results['stats'].exitCode,
+                                                                                    results['stats'].output))
+
+            log.debug('XXX Updating metrics for {} containers'.format(stats_data[0]))
+            log.debug('XXX Updating metrics for {} containers'.format(len(stats_data)))
+            for container_stats in stats_data:
+                log.debug('container_stats: {}'.format(container_stats))
+                c_id = 'container_{}'.format(container_stats["CONTAINER ID"])
+                # data['values'][c_id]['stats_last_seen'] = 0
+                # data['values'].update({c_id: {'stats_last_seen': 0}})
+                values = self.parse_container_metrics(container_stats)
+                data['values'].update(values)
+
+        log.debug('XXX data: {}'.format(data))
+
+
+        '''
+            for container in stats_data:
+
+
+        # Build full maps for new containers
 
         # TODO: Remove placeholder if there are containers
 
@@ -322,3 +275,76 @@ class stats(PythonDataSourcePlugin):
             # log.debug('c_instance: {}'.format(c_instance))
             result.append(c_instance)
         return result
+
+    @staticmethod
+    def model_remaining_containers(remaining_instances, containers_lastseen, time_expiry):
+        log.debug('XXX remaining instances: {}'.format(remaining_instances))
+        log.debug('XXX containers_lastseen: {}'.format(containers_lastseen))
+        maps = []
+        for container in remaining_instances:
+            if container in containers_lastseen:
+                lastseen = containers_lastseen[container]
+                if lastseen > time_expiry:
+                    c_instance = ObjectMap()
+                    c_instance.id = container
+                    maps.append(c_instance)
+            else:
+                log.error('Could not find when {} was last seen'.format(container))
+        return maps
+
+    @staticmethod
+    def parse_container_metrics(container_stats):
+        log.debug('parse_container_metrics start')
+        # CONTAINER ID - NAME - CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
+        metrics = dict()
+        container_id = prepId('container_{}'.format(container_stats["CONTAINER ID"]))
+
+        # CPU
+        log.debug('parse_container_metrics 01')
+        # stats is here the name of the class
+        metrics['stats_cpu_usage_percent'] = stats.stats_single(container_stats["CPU %"])
+        log.debug('parse_container_metrics 02')
+
+        # MEM USAGE / LIMIT
+        metrics['stats_memory_usage'], metrics['stats_memory_limit'] = stats.stats_pair(
+            container_stats["MEM USAGE / LIMIT"])
+
+        # MEM %
+        metrics['stats_memory_usage_percent'] = stats.stats_single(container_stats["MEM %"])
+
+        # NET I/O
+        metrics['stats_network_inbound'], metrics['stats_network_outbound'] = stats.stats_pair(
+            container_stats["NET I/O"])
+
+        # BLOCK I / O
+        metrics['stats_block_read'], metrics['stats_block_write'] = stats.stats_pair(
+            container_stats["BLOCK I/O"])
+
+        # PIDS
+        metrics['stats_num_procs'] = stats.stats_single(container_stats["PIDS"])
+
+        return {container_id: metrics}
+
+    @staticmethod
+    def stats_pair(metrics_data):
+        log.debug('metrics_data: **{}**'.format(metrics_data))
+        r = re.match(r'(\d+\.?\d*)(\w+)\s\/\s(\d+\.?\d*)(\w+)', metrics_data)
+        log.debug('r: **{}**'.format(r))
+        if r:
+            val1 = convert_from_human(r.group(1), r.group(2))
+            log.debug('val1: {}'.format(val1))
+            # data['values'][c_id]['stats_network_inbound'] = usage
+            val2 = convert_from_human(r.group(3), r.group(4))
+            log.debug('val2: {}'.format(val2))
+            # data['values'][c_id]['stats_network_outbound'] = limit
+        else:
+            val1 = 0
+            val2 = 0
+            # data['values'][c_id]['stats_network_inbound'] = 0
+            # data['values'][c_id]['stats_network_outbound'] = 0
+        return val1, val2
+
+    @staticmethod
+    def stats_single(metrics_data):
+        r = re.match(r'(\d+\.\d+).*', metrics_data)
+        return float(r.group(1)) if r else 0
