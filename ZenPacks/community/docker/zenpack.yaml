@@ -7,7 +7,7 @@ zProperties:
   zDockerPersistDuration:
     type: int
     default: 12
-    description: Defines in hours how long a container should remain at least visible in Zenoss
+    description: Defines in hours how long at least a container should remain visible in Zenoss
 
 classes:
   DockerContainer:
