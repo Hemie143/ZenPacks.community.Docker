@@ -36,7 +36,6 @@ class stats(PythonDataSourcePlugin):
     # TODO: no need to stats on all containers, probably. But this impacts the usage of remaining instances
     commands = {
         'containers': 'sudo docker ps -a --no-trunc',
-        # 'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
         'stats': 'sudo docker stats -a --no-stream --no-trunc',
     }
 
@@ -103,8 +102,6 @@ class stats(PythonDataSourcePlugin):
         results = {}
         for item, cmd in self.commands.items():
             try:
-                # results = yield producer.getResults()
-                # '/usr/bin/env sudo find ${here/cgroup_path}/memory/ -printf "\n%p\n" -exec cat {} 2>/dev/null \;'
                 response = yield client.run(cmd, timeout=timeout)
                 results[item] = response
                 # log.debug('results: {}'.format(results))

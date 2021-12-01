@@ -64,6 +64,7 @@ device_classes:
           stats:
             type: Python
             plugin_classname: ZenPacks.community.Docker.dsplugins.containers.stats
+            # TODO: remove next line before final release
             cycletime: 120
             datapoints:
               # CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
@@ -105,12 +106,12 @@ device_classes:
               Limit:
                 dpName: stats_memory_limit
                 format: "%7.2lf%s"
-                legend: Memory Limit
+                legend:  Memory Limit
                 sequence: 1
               Used:
                 dpName: stats_memory_usage
                 format: "%7.2lf%s"
-                legend: Memory Used
+                legend:  Memory Used
                 sequence: 2
           Memory Usage Percentage:
             units: percent
@@ -120,7 +121,7 @@ device_classes:
               Memory Usage:
                 dpName: stats_memory_usage_percent
                 format: "%7.2lf %%"
-                legend: Memory Usage
+                legend:  Memory Usage
                 sequence: 1
           Network:
             units: bytes
@@ -130,12 +131,12 @@ device_classes:
               Network Inbound:
                 dpName: stats_network_inbound
                 format: "%7.2lf%s"
-                legend: Network Inbound
+                legend:  Network Inbound
                 sequence: 1
               Network Outbound:
                 dpName: stats_network_outbound
                 format: "%7.2lf%s"
-                legend: Network Outbound
+                legend:  Network Outbound
                 sequence: 2
           Blocks:
             units: bytes
@@ -145,12 +146,12 @@ device_classes:
               Block reads:
                 dpName: stats_block_read
                 format: "%7.2lf%s"
-                legend: Block reads
+                legend:  Block reads
                 sequence: 1
               Block writes:
                 dpName: stats_block_write
                 format: "%7.2lf%s"
-                legend: Block writes
+                legend:  Block writes
                 sequence: 2
           Processes:
             units: processes5
@@ -159,5 +160,5 @@ device_classes:
               Number of processes:
                 dpName: stats_num_procs
                 format: "%7.0lf"
-                legend: Number of processes
+                legend:  Number of processes
                 sequence: 1

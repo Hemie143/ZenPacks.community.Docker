@@ -24,7 +24,7 @@ ZenPacks/community/Docker/dsplugins/containers.py
 ZenPacks/community/Docker/dsplugins/containers.pyc
 ZenPacks/community/Docker/lib/__init__.py
 ZenPacks/community/Docker/lib/__init__.pyc
-ZenPacks/community/Docker/lib/parsers.py.bak
+ZenPacks/community/Docker/lib/parsers.py
 ZenPacks/community/Docker/lib/parsers.pyc
 ZenPacks/community/Docker/lib/sshclient/__init__.py
 ZenPacks/community/Docker/lib/sshclient/__init__.pyc
@@ -73,4 +73,5 @@ ZenPacks/community/Docker/patches/platform.py
 ZenPacks/community/Docker/patches/platform.pyc
 ZenPacks/community/Docker/resources/__init__.py
 ZenPacks/community/Docker/tests/__init__.py
+ZenPacks/community/Docker/tests/testParsers.py
 ZenPacks/community/Docker/thresholds/__init__.py

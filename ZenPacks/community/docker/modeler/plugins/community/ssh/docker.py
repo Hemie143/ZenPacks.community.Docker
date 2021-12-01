@@ -25,6 +25,7 @@ log = logging.getLogger('zen.DockerPlugin')
 class docker(PythonPlugin):
     """docker containers modeler plugin."""
 
+    # TODO: get rid of getContainers
     requiredProperties = (
         'zCommandUsername',
         'zCommandPassword',
@@ -43,7 +44,7 @@ class docker(PythonPlugin):
     commands = {
         'version': 'docker -v',
         'containers': 'sudo docker ps -a --no-trunc',
-        'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
+        # 'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
     }
 
     @classmethod
@@ -117,28 +118,30 @@ class docker(PythonPlugin):
         log.debug('current_containers: {}'.format(current_containers))
 
         rm = []
-        log.debug('***cgroup: {}'.format('cgroup' in results))
+        # log.debug('***cgroup: {}'.format('cgroup' in results))
+        '''
         if 'cgroup' in results:
             log.debug('***cgroup: {}'.format(results['cgroup']))
             # cgroup_path = self.model_cgroup(results['cgroup'])
             cgroup_path = ''
-            if 'containers' in results:
-                try:
-                    dockerPersistDuration = int(device.zDockerPersistDuration)
-                except:
-                    dockerPersistDuration = 24
+        '''
+        if 'containers' in results:
+            try:
+                dockerPersistDuration = int(device.zDockerPersistDuration)
+            except:
+                dockerPersistDuration = 24
 
-                container_maps = self.model_containers(results['containers'],
-                                                       current_containers,
-                                                       dockerPersistDuration,
-                                                       cgroup_path)
-                rm.extend(container_maps)
+            container_maps = self.model_containers(results['containers'],
+                                                   current_containers,
+                                                   dockerPersistDuration,
+                                                   )
+            rm.extend(container_maps)
 
         # log.debug('rm: {}'.format(rm))
         # rm = []
         return rm
 
-    def model_containers(self, result, current_containers, dockerPersistDuration, cgroup_path):
+    def model_containers(self, result, current_containers, dockerPersistDuration):
         # TODO: use parser in lib
         # TODO: clean up code
         # TODO: modeler should at least create one placeholder instance, otherwise the collector won't run
@@ -203,7 +206,7 @@ class docker(PythonPlugin):
             c_instance.command = c_data["COMMAND"]
             c_instance.created = c_data["CREATED"]
             c_instance.ports = c_data["PORTS"]
-            c_instance.cgroup_path = cgroup_path
+            # c_instance.cgroup_path = cgroup_path
             c_instance.last_seen_model = now
             log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)
