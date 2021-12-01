@@ -20,6 +20,8 @@ from ZenPacks.community.Docker.lib.sshclient import SSHClient
 
 log = logging.getLogger('zen.DockerPlugin')
 
+# TODO: get rid of cgroup path
+
 class docker(PythonPlugin):
     """docker containers modeler plugin."""
 
@@ -223,8 +225,6 @@ class docker(PythonPlugin):
                 keep_count += 1
         log.debug('keeping old containers: {}'.format(keep_count))
         log.debug('total containers: {}'.format(len(containers_maps)))
-
-        containers_maps = []
 
         # If no container is present, create a placeholder so that the datasource is running
         if len(containers_maps) == 0:

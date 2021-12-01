@@ -4,6 +4,7 @@ import logging
 
 log = logging.getLogger('zen.DockerParsers')
 
+# TODO: remove unused methods
 
 def get_cgroup_path(output):
     output = output.strip().splitlines()
@@ -20,6 +21,7 @@ def get_cgroup_path(output):
         return ''
 
 # TODO: replace two next functions with one single function
+# TODO: remove next two functions
 def get_containers(output):
     # TODO: Add logging
     expected_columns = set([
@@ -95,6 +97,9 @@ def get_container_stats(output, log):
 
 
 def parse_docker_output(output, expected_columns):
+    # TODO: handle case where metrics are printed as --, should however not appear in listing active containers
+    # 191ff9626d16   monorepo-docs-depgraph-FRON-STOR-3177     --        -- / --              --        --          --           --
+
     output = output.strip().splitlines()
     if not output or len(output) <= 1:
         log.error('Could not list containers - Result: {}'.format(result.output))
@@ -120,6 +125,8 @@ def parse_docker_output(output, expected_columns):
     return result
 
 def get_docker_data(output, command):
+    # {'MEM USAGE / LIMIT': '188.8MiB / 15.65GiB', 'MEM %': '1.18%', 'NAME': 'cer-be1107-job1_pubsub_1', 'NET I/O': '3.75MB / 1.48MB', 'CPU %': '2.10%', 'PIDS': '85', 'CONTAINER ID': '3de668dcaa7b2579ab1d0f5d6e7d6995e1c05e242aa85180a17ee64836f39f19', 'BLOCK I/O': '1.49MB / 0B'}
+
     # TODO: create dict containing columns definitions for matching commands
     if command.upper() == 'PS':
         ps_columns = set([
@@ -159,6 +166,9 @@ def convert_from_human(value, unit):
     if float(value) == 0.0:
         return 0.0
 
+    log.debug('CCC value: {}'.format(value))
+    log.debug('CCC unit: {}'.format(unit))
+
     unit = unit.upper()
     size_name = {
         "B": 0,
@@ -172,9 +182,16 @@ def convert_from_human(value, unit):
         "YB": 8,
         }
 
+    # kilobyte or kibibyte : https://en.wikipedia.org/wiki/Byte#Multiple-byte_units
     if 'I' in unit:
         multiplier = 1024 ** size_name[unit.replace('I', '')]
     else:
         multiplier = 1000 ** size_name[unit]
-    return (int(float(value)) * multiplier)
+
+    log.debug('CCC multiplier: {}'.format(multiplier))
+    log.debug('CCC 1: {}'.format(float(value)))
+    log.debug('CCC 2: {}'.format(int(float(value))))
+    log.debug('CCC 3: {}'.format((int(float(value)) * multiplier)))
+
+    return (int(float(value) * multiplier))
 

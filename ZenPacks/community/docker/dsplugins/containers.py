@@ -17,6 +17,9 @@ from ZenPacks.community.Docker.lib.parsers import get_containers, get_container_
 # Setup logging
 log = logging.getLogger('zen.Dockercontainers')
 
+# TODO check used imports
+# TODO: get rid of cgroup path
+
 class stats(PythonDataSourcePlugin):
     proxy_attributes = (
         'zCommandUsername',
@@ -30,6 +33,7 @@ class stats(PythonDataSourcePlugin):
     )
 
     clients = {}
+    # TODO: no need to stats on all containers, probably. But this impacts the usage of remaining instances
     commands = {
         'containers': 'sudo docker ps -a --no-trunc',
         # 'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
@@ -168,6 +172,12 @@ class stats(PythonDataSourcePlugin):
             log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)
 
+        data['maps'].append(RelationshipMap(compname='',
+                                            relname='dockerContainers',
+                                            modname='ZenPacks.community.Docker.DockerContainer',
+                                            objmaps=containers_maps,
+                                            ))
+
         # Fill in metrics for found containers
         # Let's suppose that the containers in stats are identical to those found in the ps output
         # TODO: Don't re-use the remaining_instances variable
@@ -194,66 +204,23 @@ class stats(PythonDataSourcePlugin):
                 values = self.parse_container_metrics(container_stats)
                 data['values'].update(values)
 
-        log.debug('XXX data: {}'.format(data))
+            # Fill in with zero the remaining instances
+            for instance in remaining_instances:
+                data['values'][instance]['stats_cpu_usage_percent'] = 0
+                data['values'][instance]['stats_cpu_usage_percent'] = 0
+                data['values'][instance]['stats_memory_usage'] = 0
+                data['values'][instance]['stats_memory_limit'] = 0
+                data['values'][instance]['stats_memory_usage_percent'] = 0
+                data['values'][instance]['stats_network_inbound'] = 0
+                data['values'][instance]['stats_network_outbound'] = 0
+                data['values'][instance]['stats_block_read'] = 0
+                data['values'][instance]['stats_block_write'] = 0
+                data['values'][instance]['stats_num_procs'] = 0
 
-
-        '''
-            for container in stats_data:
-
-
-        # Build full maps for new containers
-
-        # TODO: Remove placeholder if there are containers
-
-        # Review container instances
-        log.debug('XXX Remaining {} container instances'.format(len(remaining_instances)))
-        for instance_id in remaining_instances:
-            if instance_id in containers_data:
-                log.debug('YYY container instance {} found in data'.format(instance_id))
-                log.debug('YYY container data: {}'.format(containers_data[instance_id]))
-                log.debug('YYY container data2: {}'.format(containers_data2[instance_id]))
-                last_seen = int(containers_data2[instance_id])
-
-                # last_seen = max(int(containers_data[container]['collect']), int(containers_data[container]['model']))
-                # log.debug('YYY container last seen: {}'.format(containers_data[last_seen]))
-                log.debug('YYY container last seen: {} ({})'.format(last_seen, type(last_seen)))
-                # Check containers that have expired
-                if last_seen > time_expiry:
-                    log.debug('Here 01')
-                    c_instance = ObjectMap()
-                    # instance_id = prepId('container_{}'.format(instance_id))
-                    c_instance.id = instance_id
-                    containers_maps.append(c_instance)
-                    log.debug('Here 02')
-                    # Fill in metrics for remaining containers
-                    # c_id = 'container_{}'.format(container["CONTAINER ID"])
-                    log.debug('Here 03')
-                    log.debug('instance_id: {}'.format(instance_id))
-                    data['values'][instance_id]['stats_cpu_usage_percent'] = 0
-                    data['values'][instance_id]['stats_cpu_usage_percent'] = 0
-                    data['values'][instance_id]['stats_memory_usage'] = 0
-                    data['values'][instance_id]['stats_memory_limit'] = 0
-                    data['values'][instance_id]['stats_memory_usage_percent'] = 0
-                    data['values'][instance_id]['stats_network_inbound'] = 0
-                    data['values'][instance_id]['stats_network_outbound'] = 0
-                    data['values'][instance_id]['stats_block_read'] = 0
-                    data['values'][instance_id]['stats_block_write'] = 0
-                    data['values'][instance_id]['stats_num_procs'] = 0
-                    log.debug('Here 04')
-            else:
-                log.debug('YYY container instance {} NOT found in data'.format(container))
-
-        log.debug('XXX Found {} containers'.format(len(containers_maps)))
-        '''
-
-        data['maps'].append(RelationshipMap(compname='',
-                                            relname='dockerContainers',
-                                            modname='ZenPacks.community.Docker.DockerContainer',
-                                            objmaps=containers_maps,
-                                            ))
-
+        # log.debug('XXX data: {}'.format(data))
         return data
 
+    # TODO: move this method to a shared place to use in modeler
     @staticmethod
     def model_ps_containers(data):
         result = []
@@ -276,6 +243,7 @@ class stats(PythonDataSourcePlugin):
             result.append(c_instance)
         return result
 
+    # TODO: move this method to a shared place to use in modeler
     @staticmethod
     def model_remaining_containers(remaining_instances, containers_lastseen, time_expiry):
         log.debug('XXX remaining instances: {}'.format(remaining_instances))
@@ -300,12 +268,11 @@ class stats(PythonDataSourcePlugin):
         container_id = prepId('container_{}'.format(container_stats["CONTAINER ID"]))
 
         # CPU
-        log.debug('parse_container_metrics 01')
         # stats is here the name of the class
         metrics['stats_cpu_usage_percent'] = stats.stats_single(container_stats["CPU %"])
-        log.debug('parse_container_metrics 02')
 
         # MEM USAGE / LIMIT
+        # TODO: correct bug ? values are strange for memory
         metrics['stats_memory_usage'], metrics['stats_memory_limit'] = stats.stats_pair(
             container_stats["MEM USAGE / LIMIT"])
 
@@ -321,10 +288,17 @@ class stats(PythonDataSourcePlugin):
             container_stats["BLOCK I/O"])
 
         # PIDS
+        # TODO: correct bug ? value is always zero
         metrics['stats_num_procs'] = stats.stats_single(container_stats["PIDS"])
+
+        if stats.stats_single(container_stats["CPU %"]):
+            log.debug('BBB container_stats: {}'.format(container_stats))
+            log.debug('BBB memory: {}'.format(stats.stats_pair(container_stats["MEM USAGE / LIMIT"])))
+            log.debug('BBB pids: {}'.format(stats.stats_single(container_stats["PIDS"])))
 
         return {container_id: metrics}
 
+    # TODO: move to a library ?
     @staticmethod
     def stats_pair(metrics_data):
         log.debug('metrics_data: **{}**'.format(metrics_data))
@@ -344,7 +318,8 @@ class stats(PythonDataSourcePlugin):
             # data['values'][c_id]['stats_network_outbound'] = 0
         return val1, val2
 
+    # TODO: move to a library ?
     @staticmethod
     def stats_single(metrics_data):
-        r = re.match(r'(\d+\.\d+).*', metrics_data)
+        r = re.match(r'(\d+\.?\d+).*', metrics_data)
         return float(r.group(1)) if r else 0
