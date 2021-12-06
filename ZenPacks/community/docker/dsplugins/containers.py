@@ -9,7 +9,7 @@ from Products.ZenUtils.Utils import prepId
 # Zenoss imports
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonDataSourcePlugin
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
-from ZenPacks.community.Docker.lib.parsers import convert_from_human, get_docker_data
+from ZenPacks.community.Docker.lib.parsers import convert_from_human, get_docker_data, stats_pair, stats_single
 
 # Twisted Imports
 from twisted.internet.defer import returnValue, inlineCallbacks
@@ -270,58 +270,21 @@ class stats(PythonDataSourcePlugin):
         # CONTAINER ID - NAME - CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
         metrics = dict()
         container_id = prepId('container_{}'.format(container_stats["CONTAINER ID"]))
-
         # CPU
         # stats is here the name of the class
-        metrics['stats_cpu_usage_percent'] = stats.stats_single(container_stats["CPU %"])
-
+        metrics['stats_cpu_usage_percent'] = stats_single(container_stats["CPU %"])
         # MEM USAGE / LIMIT
-        metrics['stats_memory_usage'], metrics['stats_memory_limit'] = stats.stats_pair(
+        metrics['stats_memory_usage'], metrics['stats_memory_limit'] = stats_pair(
             container_stats["MEM USAGE / LIMIT"])
-
         # MEM %
-        metrics['stats_memory_usage_percent'] = stats.stats_single(container_stats["MEM %"])
-
+        metrics['stats_memory_usage_percent'] = stats_single(container_stats["MEM %"])
         # NET I/O
-        metrics['stats_network_inbound'], metrics['stats_network_outbound'] = stats.stats_pair(
+        metrics['stats_network_inbound'], metrics['stats_network_outbound'] = stats_pair(
             container_stats["NET I/O"])
-
         # BLOCK I / O
-        metrics['stats_block_read'], metrics['stats_block_write'] = stats.stats_pair(
+        metrics['stats_block_read'], metrics['stats_block_write'] = stats_pair(
             container_stats["BLOCK I/O"])
-
         # PIDS
-        metrics['stats_num_procs'] = stats.stats_single(container_stats["PIDS"])
-
-        if stats.stats_single(container_stats["CPU %"]):
-            log.debug('BBB container_stats: {}'.format(container_stats))
-            log.debug('BBB memory: {}'.format(stats.stats_pair(container_stats["MEM USAGE / LIMIT"])))
-            log.debug('BBB pids: {}'.format(stats.stats_single(container_stats["PIDS"])))
+        metrics['stats_num_procs'] = stats_single(container_stats["PIDS"])
 
         return {container_id: metrics}
-
-    # TODO: move to a library ?
-    @staticmethod
-    def stats_pair(metrics_data):
-        log.debug('metrics_data: **{}**'.format(metrics_data))
-        r = re.match(r'(\d+\.?\d*)(\w+)\s\/\s(\d+\.?\d*)(\w+)', metrics_data)
-        log.debug('r: **{}**'.format(r))
-        if r:
-            val1 = convert_from_human(r.group(1), r.group(2))
-            log.debug('val1: {}'.format(val1))
-            # data['values'][c_id]['stats_network_inbound'] = usage
-            val2 = convert_from_human(r.group(3), r.group(4))
-            log.debug('val2: {}'.format(val2))
-            # data['values'][c_id]['stats_network_outbound'] = limit
-        else:
-            val1 = 0
-            val2 = 0
-            # data['values'][c_id]['stats_network_inbound'] = 0
-            # data['values'][c_id]['stats_network_outbound'] = 0
-        return val1, val2
-
-    # TODO: move to a library ?
-    @staticmethod
-    def stats_single(metrics_data):
-        r = re.match(r'(\d+\.?\d+).*', metrics_data)
-        return float(r.group(1)) if r else 0

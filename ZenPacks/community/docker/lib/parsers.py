@@ -39,7 +39,7 @@ def parse_docker_output(output, expected_columns):
 def get_docker_data(output, command):
     # {'MEM USAGE / LIMIT': '188.8MiB / 15.65GiB', 'MEM %': '1.18%', 'NAME': 'cer-be1107-job1_pubsub_1', 'NET I/O': '3.75MB / 1.48MB', 'CPU %': '2.10%', 'PIDS': '85', 'CONTAINER ID': '3de668dcaa7b2579ab1d0f5d6e7d6995e1c05e242aa85180a17ee64836f39f19', 'BLOCK I/O': '1.49MB / 0B'}
 
-    # TODO: create dict containing columns definitions for matching commands
+    # TODO (next): create dict containing columns definitions for matching commands
     if command.upper() == 'PS':
         ps_columns = set([
             "CONTAINER ID",
@@ -107,3 +107,18 @@ def convert_from_human(value, unit):
 
     return (int(float(value) * multiplier))
 
+def stats_pair(metrics_data):
+    log.debug('metrics_data: **{}**'.format(metrics_data))
+    r = re.match(r'(\d+\.?\d*)(\w+)\s\/\s(\d+\.?\d*)(\w+)', metrics_data)
+    log.debug('r: **{}**'.format(r))
+    if r:
+        val1 = convert_from_human(r.group(1), r.group(2))
+        val2 = convert_from_human(r.group(3), r.group(4))
+    else:
+        val1 = 0
+        val2 = 0
+    return val1, val2
+
+def stats_single(metrics_data):
+    r = re.match(r'(\d+\.?\d+).*', metrics_data)
+    return float(r.group(1)) if r else 0

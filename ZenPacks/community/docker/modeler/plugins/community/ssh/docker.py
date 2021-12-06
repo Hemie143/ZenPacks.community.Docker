@@ -23,7 +23,6 @@ log = logging.getLogger('zen.DockerPlugin')
 class docker(PythonPlugin):
     """docker containers modeler plugin."""
 
-    # TODO: get rid of getContainers
     requiredProperties = (
         'zCommandUsername',
         'zCommandPassword',
