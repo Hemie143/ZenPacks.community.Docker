@@ -1,24 +1,21 @@
 # stdlib Imports
 import logging
-import time
 import re
+import time
+
+from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
+from Products.ZenUtils.Utils import prepId
 
 # Zenoss imports
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonDataSourcePlugin
-from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
-from Products.ZenUtils.Utils import prepId
+from ZenPacks.community.Docker.lib.sshclient import SSHClient
+from ZenPacks.community.Docker.lib.parsers import convert_from_human, get_docker_data
 
 # Twisted Imports
 from twisted.internet.defer import returnValue, inlineCallbacks
 
-from ZenPacks.community.Docker.lib.sshclient import SSHClient
-from ZenPacks.community.Docker.lib.parsers import get_containers, get_container_stats, convert_from_human, get_docker_data
-
 # Setup logging
 log = logging.getLogger('zen.Dockercontainers')
-
-# TODO check used imports
-# TODO: get rid of cgroup path
 
 class stats(PythonDataSourcePlugin):
     proxy_attributes = (
@@ -33,11 +30,11 @@ class stats(PythonDataSourcePlugin):
     )
 
     clients = {}
-    # TODO: no need to stats on all containers, probably. But this impacts the usage of remaining instances
+    # If creation timestamp needs to be more precise, we could use the following command:
+    # "docker ps --format 'table {{.ID}}\t{{.Command}}\t{{.CreatedAt}}'"
     commands = {
-        'containers': 'sudo docker ps -a --no-trunc',
-        # 'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
-        'stats': 'sudo docker stats -a --no-stream --no-trunc',
+        'containers': 'sudo docker ps --no-trunc',
+        'stats': 'sudo docker stats --no-stream --no-trunc',
     }
 
     @classmethod
@@ -54,7 +51,6 @@ class stats(PythonDataSourcePlugin):
 
     @classmethod
     def config_key(cls, datasource, context):
-        # TODO: Should run once per device
         log.info('In config_key {} {} {} {} {}'.format(context.device().id,
                                                        datasource.getCycleTime(context),
                                                        datasource.rrdTemplate().id,
@@ -104,7 +100,6 @@ class stats(PythonDataSourcePlugin):
         for item, cmd in self.commands.items():
             try:
                 # results = yield producer.getResults()
-                # '/usr/bin/env sudo find ${here/cgroup_path}/memory/ -printf "\n%p\n" -exec cat {} 2>/dev/null \;'
                 response = yield client.run(cmd, timeout=timeout)
                 results[item] = response
                 # log.debug('results: {}'.format(results))
@@ -130,9 +125,8 @@ class stats(PythonDataSourcePlugin):
         time_expiry = now - int(dockerPersistDuration * 3600)
 
         current_instances = [c.component for c in config.datasources]
-        # TODO: is current_instances being used ?
         remaining_instances = list(current_instances)
-        log.debug('XXX current_containers: {}'.format((current_instances)))
+        log.debug('XXX current_containers: {}'.format(len(current_instances)))
         log.debug('XXX Datasources: {}'.format((config.datasources[0].component)))
         log.debug('XXX Found data for {} current containers'.format(len(ds0.getContainers)))
 
@@ -156,6 +150,18 @@ class stats(PythonDataSourcePlugin):
         log.debug('XXX Created mapping for {} containers'.format(len(containers_maps)))
         log.debug('XXX remaining_instances: {}'.format(remaining_instances))
         log.debug('XXX remaining_instances: {}'.format(len(remaining_instances)))
+
+        oldest_time = int(time.time())
+        for i in remaining_instances:
+            i_time = containers_lastseen[i]
+            log.debug('XXX i_time: {}'.format(i_time))
+            oldest_time = min(i_time, oldest_time)
+        log.debug('XXX lastseen   : {}'.format(containers_lastseen.values()))
+        log.debug('XXX oldest_time: {} ({})'.format(oldest_time, type(oldest_time)))
+        log.debug('XXX time_expiry: {} ({})'.format(time_expiry, type(time_expiry)))
+        log.debug('XXX now        : {} ({})'.format(now, type(now)))
+        log.debug('XXX oldest_time age: {}'.format(now - oldest_time))
+
         # Check if remaining instances have expired
         containers_maps.extend(self.model_remaining_containers(remaining_instances, containers_lastseen, time_expiry))
 
@@ -180,7 +186,6 @@ class stats(PythonDataSourcePlugin):
 
         # Fill in metrics for found containers
         # Let's suppose that the containers in stats are identical to those found in the ps output
-        # TODO: Don't re-use the remaining_instances variable
         if 'stats' in results:
             if results['stats'].exitCode == 0:
                 # stats_data = get_container_stats(results['stats'].output, log)
@@ -190,15 +195,17 @@ class stats(PythonDataSourcePlugin):
                 # stats_data = stats_data[:45]
             else:
                 stats_data = []
-                log.error('Could not collect containers on {}: (code:{}) {}'.format(config.id,
+                log.error('XXX Could not collect containers on {}: (code:{}) {}'.format(config.id,
                                                                                     results['stats'].exitCode,
                                                                                     results['stats'].output))
 
-            log.debug('XXX Updating metrics for {} containers'.format(stats_data[0]))
             log.debug('XXX Updating metrics for {} containers'.format(len(stats_data)))
+            remaining_instances = list(current_instances)
             for container_stats in stats_data:
                 log.debug('container_stats: {}'.format(container_stats))
                 c_id = 'container_{}'.format(container_stats["CONTAINER ID"])
+                if c_id in remaining_instances:
+                    remaining_instances.remove(c_id)
                 # data['values'][c_id]['stats_last_seen'] = 0
                 # data['values'].update({c_id: {'stats_last_seen': 0}})
                 values = self.parse_container_metrics(container_stats)
@@ -223,7 +230,7 @@ class stats(PythonDataSourcePlugin):
     # TODO: move this method to a shared place to use in modeler
     @staticmethod
     def model_ps_containers(data):
-        result = []
+        maps = []
         now = int(time.time())
         for container in data:
             c_instance = ObjectMap()
@@ -240,14 +247,14 @@ class stats(PythonDataSourcePlugin):
             c_instance.ports = container["PORTS"]
             c_instance.last_seen_model = now
             # log.debug('c_instance: {}'.format(c_instance))
-            result.append(c_instance)
-        return result
+            maps.append(c_instance)
+        return maps
 
     # TODO: move this method to a shared place to use in modeler
     @staticmethod
     def model_remaining_containers(remaining_instances, containers_lastseen, time_expiry):
         log.debug('XXX remaining instances: {}'.format(remaining_instances))
-        log.debug('XXX containers_lastseen: {}'.format(containers_lastseen))
+        log.debug('XXX containers_lastseen: {}'.format(len(containers_lastseen)))
         maps = []
         for container in remaining_instances:
             if container in containers_lastseen:
@@ -272,7 +279,6 @@ class stats(PythonDataSourcePlugin):
         metrics['stats_cpu_usage_percent'] = stats.stats_single(container_stats["CPU %"])
 
         # MEM USAGE / LIMIT
-        # TODO: correct bug ? values are strange for memory
         metrics['stats_memory_usage'], metrics['stats_memory_limit'] = stats.stats_pair(
             container_stats["MEM USAGE / LIMIT"])
 
@@ -288,7 +294,6 @@ class stats(PythonDataSourcePlugin):
             container_stats["BLOCK I/O"])
 
         # PIDS
-        # TODO: correct bug ? value is always zero
         metrics['stats_num_procs'] = stats.stats_single(container_stats["PIDS"])
 
         if stats.stats_single(container_stats["CPU %"]):

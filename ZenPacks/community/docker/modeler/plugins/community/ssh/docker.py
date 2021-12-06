@@ -20,8 +20,6 @@ from ZenPacks.community.Docker.lib.sshclient import SSHClient
 
 log = logging.getLogger('zen.DockerPlugin')
 
-# TODO: get rid of cgroup path
-
 class docker(PythonPlugin):
     """docker containers modeler plugin."""
 
@@ -43,8 +41,7 @@ class docker(PythonPlugin):
 
     commands = {
         'version': 'docker -v',
-        'containers': 'sudo docker ps -a --no-trunc',
-        # 'cgroup': 'cat /proc/self/mountinfo | grep cgroup',
+        'containers': 'sudo docker ps --no-trunc',
     }
 
     @classmethod
@@ -118,13 +115,7 @@ class docker(PythonPlugin):
         log.debug('current_containers: {}'.format(current_containers))
 
         rm = []
-        # log.debug('***cgroup: {}'.format('cgroup' in results))
-        '''
-        if 'cgroup' in results:
-            log.debug('***cgroup: {}'.format(results['cgroup']))
-            # cgroup_path = self.model_cgroup(results['cgroup'])
-            cgroup_path = ''
-        '''
+
         if 'containers' in results:
             try:
                 dockerPersistDuration = int(device.zDockerPersistDuration)
@@ -206,7 +197,6 @@ class docker(PythonPlugin):
             c_instance.command = c_data["COMMAND"]
             c_instance.created = c_data["CREATED"]
             c_instance.ports = c_data["PORTS"]
-            # c_instance.cgroup_path = cgroup_path
             c_instance.last_seen_model = now
             log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)

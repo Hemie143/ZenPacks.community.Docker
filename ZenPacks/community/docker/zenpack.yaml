@@ -35,10 +35,6 @@ classes:
       ports:
         label: Ports
         order: 6
-      cgroup_path:
-        label: CGroup Path
-        default: /sys/fs/cgroup
-        order: 7
       last_seen_model:
         label: Last seen Model
         type: int

@@ -6,20 +6,6 @@ log = logging.getLogger('zen.DockerParsers')
 
 # TODO: remove unused methods
 
-def get_cgroup_path(output):
-    output = output.strip().splitlines()
-    if not output:
-        # log.error('Could not get cgroup fs - Result: {}'.format(result.output))
-        return ''
-    for line in output:
-        mount_data = line.split(' ')
-        if 'cgroup' in mount_data[4]:
-            mount_path = mount_data[4]
-            parent_index = mount_path.find('cgroup')
-            return '{}cgroup'.format(mount_path[:parent_index])
-    else:
-        return ''
-
 # TODO: replace two next functions with one single function
 # TODO: remove next two functions
 def get_containers(output):
@@ -35,7 +21,7 @@ def get_containers(output):
 
     output = output.strip().splitlines()
     if not output or len(output) <= 1:
-        # log.error('Could not list containers - Result: {}'.format(result.output))
+        log.error('Could not list containers - Result: {}'.format(output))
         return []
     header_line = output[0]
     container_lines = output[1:]
@@ -73,7 +59,7 @@ def get_container_stats(output, log):
     ])
     output = output.strip().splitlines()
     if not output or len(output) <= 1:
-        log.error('Could not list containers - Result: {}'.format(result.output))
+        log.error('Could not list containers - Result: {}'.format(output))
         return []
     header_line = output[0]
     container_lines = output[1:]
@@ -102,7 +88,7 @@ def parse_docker_output(output, expected_columns):
 
     output = output.strip().splitlines()
     if not output or len(output) <= 1:
-        log.error('Could not list containers - Result: {}'.format(result.output))
+        log.error('Could not list containers - Result: {}'.format(output))
         return []
     header_line = output[0]
     container_lines = output[1:]
