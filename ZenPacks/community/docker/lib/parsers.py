@@ -11,7 +11,7 @@ def parse_docker_output(output, expected_columns):
 
     output = output.strip().splitlines()
     if not output or len(output) <= 1:
-        log.error('Could not list containers - Result: {}'.format(output))
+        log.warning('Could not list containers - Result: {}'.format(output))
         return []
     header_line = output[0]
     container_lines = output[1:]
@@ -31,6 +31,9 @@ def parse_docker_output(output, expected_columns):
     result = []
     for container in container_lines:
         result.append({column: container[start:end].strip() for column, (start, end) in column_indexes.items()})
+    result = [{column: container[start:end].strip() for column, (start, end) in column_indexes.items()} for container
+              in container_lines]
+    log.debug('parse_docker_output result: {}'.format(result))
     return result
 
 def get_docker_data(output, command):

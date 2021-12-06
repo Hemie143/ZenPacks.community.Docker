@@ -31,7 +31,6 @@ class docker(PythonPlugin):
         'zCommandCommandTimeout',
         'zKeyPath',
         'zDockerPersistDuration',
-        'getContainers',
         'getContainers_lastSeen',
     )
 
@@ -111,7 +110,7 @@ class docker(PythonPlugin):
         """Process results. Return iterable of datamaps or None."""
 
         # current_containers = {}
-        current_containers = device.getContainers
+        current_containers = device.getContainers_lastSeen
         log.debug('current_containers: {}'.format(current_containers))
 
         rm = []

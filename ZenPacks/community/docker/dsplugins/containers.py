@@ -25,7 +25,6 @@ class stats(PythonDataSourcePlugin):
         'zCommandCommandTimeout',
         'zKeyPath',
         'zDockerPersistDuration',
-        'getContainers',
         'getContainers_lastSeen',
     )
 
@@ -115,7 +114,6 @@ class stats(PythonDataSourcePlugin):
         now = int(time.time())
 
         ds0 = config.datasources[0]
-        # containers_data = ds0.getContainers
         containers_lastseen = ds0.getContainers_lastSeen
         log.debug('containers_lastseen : {}'.format(containers_lastseen))
         try:
@@ -128,7 +126,7 @@ class stats(PythonDataSourcePlugin):
         remaining_instances = list(current_instances)
         log.debug('XXX current_containers: {}'.format(len(current_instances)))
         log.debug('XXX Datasources: {}'.format((config.datasources[0].component)))
-        log.debug('XXX Found data for {} current containers'.format(len(ds0.getContainers)))
+        log.debug('XXX Found data for {} current containers'.format(len(ds0.getContainers_lastSeen)))
 
         containers_maps = []
         if 'containers' in results:
