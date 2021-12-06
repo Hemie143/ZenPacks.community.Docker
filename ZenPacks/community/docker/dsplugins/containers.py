@@ -188,7 +188,6 @@ class stats(PythonDataSourcePlugin):
         # Let's suppose that the containers in stats are identical to those found in the ps output
         if 'stats' in results:
             if results['stats'].exitCode == 0:
-                # stats_data = get_container_stats(results['stats'].output, log)
                 stats_data = get_docker_data(results['stats'].output, 'STATS')
 
                 # log.debug('stats_data: {}'.format(stats_data))

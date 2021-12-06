@@ -151,7 +151,7 @@ class docker(PythonPlugin):
             return []
         output = result.output.strip().splitlines()
         if not output or len(output) <= 1:
-            log.error('Could not list containers - Result: {}'.format(result.output))
+            log.warning('Could not list containers - Result: {}'.format(result.output))
             return []
         header_line = output[0]
         container_lines = output[1:]
