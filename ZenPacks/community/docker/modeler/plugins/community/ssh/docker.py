@@ -1,22 +1,21 @@
 """Models locations using the National Weather Service API. 02"""
 
 # stdlib Imports
-import json
-import urllib
-import os
 import logging
+import os
 import re
 import time
-
-# Twisted Imports
-from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
-from twisted.web.client import getPage
 
 # Zenoss Imports
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
+# Twisted Imports
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
+from ZenPacks.community.Docker.lib.parsers import get_docker_data
+from ZenPacks.community.Docker.modeler.plugins.modeler import model_ps_containers, model_remaining_containers, \
+    model_placeholder_container
 
 log = logging.getLogger('zen.DockerPlugin')
 
@@ -95,11 +94,8 @@ class docker(PythonPlugin):
         results = {}
         for item, cmd in self.commands.items():
             try:
-                # results = yield producer.getResults()
                 response = yield client.run(cmd, timeout=timeout)
                 results[item] = response
-                # log.debug('results: {}'.format(results))
-                # log.debug('results: {}'.format(results.__dict__))
             except Exception, e:
                 log.error("{} {} docker modeler error: {}".format(device.id, self.name(), e))
         log.debug('results: {}'.format(results))
@@ -110,30 +106,26 @@ class docker(PythonPlugin):
 
         # current_containers = {}
         current_containers = device.getContainers_lastSeen
-        log.debug('current_containers: {}'.format(current_containers))
+        log.debug('--- Current containers: {}'.format(current_containers))
 
         rm = []
-
         if 'containers' in results:
             try:
                 dockerPersistDuration = int(device.zDockerPersistDuration)
             except:
                 dockerPersistDuration = 24
-
             container_maps = self.model_containers(results['containers'],
                                                    current_containers,
                                                    dockerPersistDuration,
                                                    )
             rm.extend(container_maps)
-
-        # log.debug('rm: {}'.format(rm))
-        # rm = []
         return rm
 
     def model_containers(self, result, current_containers, dockerPersistDuration):
         # TODO: use parser in lib
         # TODO: clean up code
         # TODO: modeler should at least create one placeholder instance, otherwise the collector won't run
+        '''
         expected_columns = set([
             "CONTAINER ID",
             "IMAGE",
@@ -143,14 +135,16 @@ class docker(PythonPlugin):
             "NAMES",
             "STATUS",
         ])
+        '''
         # log.debug('containers result: {}'.format(result.__dict__))
         if result.exitCode > 0:
             log.error('Could not list containers (exitcode={}) - Error: {}'.format(result.exitCode, result.stderr))
-            return []
+
+        '''
         output = result.output.strip().splitlines()
         if not output or len(output) <= 1:
             log.warning('Could not list containers - Result: {}'.format(result.output))
-            return []
+
         header_line = output[0]
         container_lines = output[1:]
         columns = re.split(r' {2,}', header_line)
@@ -176,8 +170,20 @@ class docker(PythonPlugin):
         # container_lines = container_lines[:5]
         log.debug('Containers listed: {}'.format(len(container_lines)))
         log.debug('current_containers 1: {}'.format(len(current_containers)))
+        '''
 
-        # Model the containers that have been detected
+        # Model the containers
+        now = int(time.time())
+        time_expiry = now - int(dockerPersistDuration * 3600)
+        rm = []
+        containers_maps = []
+
+        # current_instances = [c.component for c in config.datasources]
+        remaining_instances = list(current_containers.keys())
+        log.debug('--- Remaining instances: {}'.format(remaining_instances))
+
+        # Model the containers detected with "docker ps"
+        '''
         for container in container_lines:
             c_data = {column: container[start:end].strip() for column, (start, end) in column_indexes.items()}
             container_id = c_data["CONTAINER ID"]
@@ -198,8 +204,23 @@ class docker(PythonPlugin):
             c_instance.last_seen_model = now
             log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)
+        '''
+        containers_ps_data = get_docker_data(result.output, 'PS')
+        log.debug('XXX containers_ps_data: {}'.format(len(containers_ps_data)))
+        # log.debug('XXX containers_ps_data: {}'.format(containers_ps_data[0]))
+        containers_maps.extend(model_ps_containers(containers_ps_data))
+        log.debug('---Modeled {} containers with docker ps'.format(len(containers_maps)))
+        # Remove found containers from remaining_instances
+        # TODO
+        ps_instances = ['container_{}'.format(c["CONTAINER ID"]) for c in containers_ps_data]
+        # log.debug('XXX ps_instances: {}'.format(ps_instances))
+        log.debug('XXX ps_instances: {}'.format(len(ps_instances)))
+        remaining_instances = set(remaining_instances) - set(ps_instances)
+        log.debug('--- Remaining instances: {}'.format(remaining_instances))
 
         # For other existing containers, check that they remain a while after they were last seen
+
+        '''
         log.debug('seen containers: {}'.format(len(containers_maps)))
         log.debug('old containers: {}'.format(len(current_containers)))
 
@@ -216,16 +237,14 @@ class docker(PythonPlugin):
                 keep_count += 1
         log.debug('keeping old containers: {}'.format(keep_count))
         log.debug('total containers: {}'.format(len(containers_maps)))
+        '''
+        # Check if remaining instances have expired
+        containers_maps.extend(model_remaining_containers(remaining_instances, current_containers, time_expiry))
+        log.debug('---Modeled {} containers in total after keeping old instances'.format(len(containers_maps)))
 
         # If no container is present, create a placeholder so that the datasource is running
         if len(containers_maps) == 0:
-            c_instance = ObjectMap()
-            c_instance.id = 'container_PLACEHOLDER'
-            c_instance.title = 'PLACEHOLDER (Not a real container)'
-            c_instance.container_status = 'EXITED'
-            c_instance.last_seen_model = 0
-            log.debug('c_instance: {}'.format(c_instance))
-            containers_maps.append(c_instance)
+            containers_maps.append(model_placeholder_container())
 
         rm.append(RelationshipMap(compname='',
                                   relname='dockerContainers',

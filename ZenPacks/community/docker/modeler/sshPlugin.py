@@ -1,6 +1,7 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
+# TODO: Remove this module ? Check first.
 class sshPlugin(object):
 
     def __init__(self, client, timeout):

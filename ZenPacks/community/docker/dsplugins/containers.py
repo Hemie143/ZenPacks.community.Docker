@@ -10,6 +10,7 @@ from Products.ZenUtils.Utils import prepId
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonDataSourcePlugin
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
 from ZenPacks.community.Docker.lib.parsers import convert_from_human, get_docker_data, stats_pair, stats_single
+from ZenPacks.community.Docker.modeler.plugins.modeler import model_ps_containers, model_remaining_containers
 
 # Twisted Imports
 from twisted.internet.defer import returnValue, inlineCallbacks
@@ -113,6 +114,7 @@ class stats(PythonDataSourcePlugin):
         data = self.new_data()
         now = int(time.time())
 
+        # Model the containers
         ds0 = config.datasources[0]
         containers_lastseen = ds0.getContainers_lastSeen
         log.debug('containers_lastseen : {}'.format(containers_lastseen))
@@ -129,13 +131,15 @@ class stats(PythonDataSourcePlugin):
         log.debug('XXX Found data for {} current containers'.format(len(ds0.getContainers_lastSeen)))
 
         containers_maps = []
+        # Model the containers detected with "docker ps"
         if 'containers' in results:
             if results['containers'].exitCode == 0:
                 containers_ps_data = get_docker_data(results['containers'].output, 'PS')
-                # log.debug('XXX containers_ps_data: {}'.format(len(containers_ps_data)))
+                log.debug('XXX containers_ps_data: {}'.format(len(containers_ps_data)))
                 # log.debug('XXX containers_ps_data: {}'.format(containers_ps_data[0]))
-                containers_maps.extend(self.model_ps_containers(containers_ps_data))
+                containers_maps.extend(model_ps_containers(containers_ps_data))
                 # Remove found containers from remaining_instances
+                log.debug('XXX containers_maps: {}'.format(len(containers_maps)))
                 ps_instances = ['container_{}'.format(c["CONTAINER ID"]) for c in containers_ps_data]
                 # log.debug('XXX ps_instances: {}'.format(ps_instances))
                 # log.debug('XXX ps_instances: {}'.format(len(ps_instances)))
@@ -149,6 +153,7 @@ class stats(PythonDataSourcePlugin):
         log.debug('XXX remaining_instances: {}'.format(remaining_instances))
         log.debug('XXX remaining_instances: {}'.format(len(remaining_instances)))
 
+        # TODO: Remove the following block. Used for testing.
         oldest_time = int(time.time())
         for i in remaining_instances:
             i_time = containers_lastseen[i]
@@ -161,12 +166,13 @@ class stats(PythonDataSourcePlugin):
         log.debug('XXX oldest_time age: {}'.format(now - oldest_time))
 
         # Check if remaining instances have expired
-        containers_maps.extend(self.model_remaining_containers(remaining_instances, containers_lastseen, time_expiry))
+        containers_maps.extend(model_remaining_containers(remaining_instances, containers_lastseen, time_expiry))
 
         # There must be at least one placeholder instance or the collector won't run. Emptying the list is suicide
         # containers_maps = []
         log.debug('XXX Found {} containers'.format(len(containers_maps)))
         if len(containers_maps) == 0:
+            '''
             log.debug('XXX Creating placeholder instance')
             c_instance = ObjectMap()
             c_instance.id = 'container_PLACEHOLDER'
@@ -175,6 +181,8 @@ class stats(PythonDataSourcePlugin):
             c_instance.last_seen_model = 0
             log.debug('c_instance: {}'.format(c_instance))
             containers_maps.append(c_instance)
+            '''
+            containers_maps.append(model_placeholder_container())
 
         data['maps'].append(RelationshipMap(compname='',
                                             relname='dockerContainers',
@@ -224,6 +232,7 @@ class stats(PythonDataSourcePlugin):
         # log.debug('XXX data: {}'.format(data))
         return data
 
+    '''
     # TODO: move this method to a shared place to use in modeler
     @staticmethod
     def model_ps_containers(data):
@@ -264,6 +273,7 @@ class stats(PythonDataSourcePlugin):
                 log.error('Could not find when {} was last seen'.format(container))
         return maps
 
+    '''
     @staticmethod
     def parse_container_metrics(container_stats):
         log.debug('parse_container_metrics start')
