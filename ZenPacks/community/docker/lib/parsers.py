@@ -28,9 +28,11 @@ def parse_docker_output(output, expected_columns):
     log.debug('column_indexes : {}'.format(column_indexes))
 
     # TODO: List comprehension
+    '''
     result = []
     for container in container_lines:
         result.append({column: container[start:end].strip() for column, (start, end) in column_indexes.items()})
+    '''
     result = [{column: container[start:end].strip() for column, (start, end) in column_indexes.items()} for container
               in container_lines]
     log.debug('parse_docker_output result: {}'.format(result))
