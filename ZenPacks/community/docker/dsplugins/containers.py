@@ -70,12 +70,6 @@ class stats(PythonDataSourcePlugin):
     @inlineCallbacks
     def collect(self, config):
         log.debug('Starting docker stats collect')
-        log.debug('A' * 80)
-
-        log.debug('config :{}'.format(config.id))
-        log.debug('config :{}'.format(config.manageIp))
-        log.debug('config :{}'.format(config.datasources[0].component))
-
         ds0 = config.datasources[0]
 
         options = {'hostname': str(config.manageIp),
@@ -93,20 +87,14 @@ class stats(PythonDataSourcePlugin):
             timeout = 15
 
         client = self.getClient(options)
-        log.debug('client: {}'.format(type(client)))
-        log.debug('client: {}'.format(client))
 
         results = {}
         for item, cmd in self.commands.items():
             try:
-                # results = yield producer.getResults()
                 response = yield client.run(cmd, timeout=timeout)
                 results[item] = response
-                # log.debug('results: {}'.format(results))
-                # log.debug('results: {}'.format(results.__dict__))
             except Exception, e:
                 log.error("{} docker collect error: {}".format(config.id, e))
-        log.debug('results: {}'.format(results))
         returnValue(results)
 
     def onSuccess(self, results, config):
@@ -117,7 +105,6 @@ class stats(PythonDataSourcePlugin):
         # Model the containers
         ds0 = config.datasources[0]
         containers_lastseen = ds0.getContainers_lastSeen
-        log.debug('containers_lastseen : {}'.format(containers_lastseen))
         try:
             dockerPersistDuration = int(ds0.zDockerPersistDuration)
         except:
@@ -126,62 +113,33 @@ class stats(PythonDataSourcePlugin):
 
         current_instances = [c.component for c in config.datasources]
         remaining_instances = list(current_instances)
-        log.debug('XXX current_containers: {}'.format(len(current_instances)))
-        log.debug('XXX Datasources: {}'.format((config.datasources[0].component)))
-        log.debug('XXX Found data for {} current containers'.format(len(ds0.getContainers_lastSeen)))
+        log.debug('--- Current containers: {}'.format(len(current_instances)))
+        log.debug('--- Found data for {} current containers'.format(len(ds0.getContainers_lastSeen)))
 
         containers_maps = []
         # Model the containers detected with "docker ps"
         if 'containers' in results:
             if results['containers'].exitCode == 0:
                 containers_ps_data = get_docker_data(results['containers'].output, 'PS')
-                log.debug('XXX containers_ps_data: {}'.format(len(containers_ps_data)))
-                # log.debug('XXX containers_ps_data: {}'.format(containers_ps_data[0]))
                 containers_maps.extend(model_ps_containers(containers_ps_data))
                 # Remove found containers from remaining_instances
-                log.debug('XXX containers_maps: {}'.format(len(containers_maps)))
                 ps_instances = ['container_{}'.format(c["CONTAINER ID"]) for c in containers_ps_data]
-                # log.debug('XXX ps_instances: {}'.format(ps_instances))
-                # log.debug('XXX ps_instances: {}'.format(len(ps_instances)))
                 remaining_instances = set(remaining_instances) - set(ps_instances)
             else:
                 containers = []
                 log.error('Could not collect containers on {}: (code:{}) {}'.format(config.id,
                                                                                     results['containers'].exitCode,
                                                                                     results['containers'].output))
-        log.debug('XXX Created mapping for {} containers'.format(len(containers_maps)))
-        log.debug('XXX remaining_instances: {}'.format(remaining_instances))
-        log.debug('XXX remaining_instances: {}'.format(len(remaining_instances)))
 
-        # TODO: Remove the following block. Used for testing.
-        oldest_time = int(time.time())
-        for i in remaining_instances:
-            i_time = containers_lastseen[i]
-            log.debug('XXX i_time: {}'.format(i_time))
-            oldest_time = min(i_time, oldest_time)
-        log.debug('XXX lastseen   : {}'.format(containers_lastseen.values()))
-        log.debug('XXX oldest_time: {} ({})'.format(oldest_time, type(oldest_time)))
-        log.debug('XXX time_expiry: {} ({})'.format(time_expiry, type(time_expiry)))
-        log.debug('XXX now        : {} ({})'.format(now, type(now)))
-        log.debug('XXX oldest_time age: {}'.format(now - oldest_time))
+        log.debug('--- Modeled {} containers with docker ps'.format(len(containers_maps)))
+        log.debug('--- Remaining {} instances after docker ps'.format(len(remaining_instances)))
 
         # Check if remaining instances have expired
         containers_maps.extend(model_remaining_containers(remaining_instances, containers_lastseen, time_expiry))
+        log.debug('--- Modeled {} containers after checking old instances'.format(len(containers_maps)))
 
         # There must be at least one placeholder instance or the collector won't run. Emptying the list is suicide
-        # containers_maps = []
-        log.debug('XXX Found {} containers'.format(len(containers_maps)))
         if len(containers_maps) == 0:
-            '''
-            log.debug('XXX Creating placeholder instance')
-            c_instance = ObjectMap()
-            c_instance.id = 'container_PLACEHOLDER'
-            c_instance.title = 'PLACEHOLDER (Not a real container)'
-            c_instance.container_status = 'EXITED'
-            c_instance.last_seen_model = 0
-            log.debug('c_instance: {}'.format(c_instance))
-            containers_maps.append(c_instance)
-            '''
             containers_maps.append(model_placeholder_container())
 
         data['maps'].append(RelationshipMap(compname='',
@@ -204,15 +162,14 @@ class stats(PythonDataSourcePlugin):
                                                                                     results['stats'].exitCode,
                                                                                     results['stats'].output))
 
-            log.debug('XXX Updating metrics for {} containers'.format(len(stats_data)))
+            # Update metrics with docker stats
+            log.debug('--- Updating metrics for {} containers'.format(len(stats_data)))
             remaining_instances = list(current_instances)
             for container_stats in stats_data:
                 log.debug('container_stats: {}'.format(container_stats))
                 c_id = 'container_{}'.format(container_stats["CONTAINER ID"])
                 if c_id in remaining_instances:
                     remaining_instances.remove(c_id)
-                # data['values'][c_id]['stats_last_seen'] = 0
-                # data['values'].update({c_id: {'stats_last_seen': 0}})
                 values = self.parse_container_metrics(container_stats)
                 data['values'].update(values)
 
@@ -229,54 +186,10 @@ class stats(PythonDataSourcePlugin):
                 data['values'][instance]['stats_block_write'] = 0
                 data['values'][instance]['stats_num_procs'] = 0
 
-        # log.debug('XXX data: {}'.format(data))
         return data
 
-    '''
-    # TODO: move this method to a shared place to use in modeler
-    @staticmethod
-    def model_ps_containers(data):
-        maps = []
-        now = int(time.time())
-        for container in data:
-            c_instance = ObjectMap()
-            container_id = container["CONTAINER ID"]
-            instance_id = prepId('container_{}'.format(container_id))
-            c_instance.id = instance_id
-            c_instance.container_id = container_id
-            c_instance.title = container["NAMES"]
-            # created, restarting, running, removing, paused, exited, or dead
-            c_instance.container_status = container["STATUS"].split(' ')[0].upper()
-            c_instance.image = container["IMAGE"]
-            c_instance.command = container["COMMAND"]
-            c_instance.created = container["CREATED"]
-            c_instance.ports = container["PORTS"]
-            c_instance.last_seen_model = now
-            # log.debug('c_instance: {}'.format(c_instance))
-            maps.append(c_instance)
-        return maps
-
-    # TODO: move this method to a shared place to use in modeler
-    @staticmethod
-    def model_remaining_containers(remaining_instances, containers_lastseen, time_expiry):
-        log.debug('XXX remaining instances: {}'.format(remaining_instances))
-        log.debug('XXX containers_lastseen: {}'.format(len(containers_lastseen)))
-        maps = []
-        for container in remaining_instances:
-            if container in containers_lastseen:
-                lastseen = containers_lastseen[container]
-                if lastseen > time_expiry:
-                    c_instance = ObjectMap()
-                    c_instance.id = container
-                    maps.append(c_instance)
-            else:
-                log.error('Could not find when {} was last seen'.format(container))
-        return maps
-
-    '''
     @staticmethod
     def parse_container_metrics(container_stats):
-        log.debug('parse_container_metrics start')
         # CONTAINER ID - NAME - CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
         metrics = dict()
         container_id = prepId('container_{}'.format(container_stats["CONTAINER ID"]))

@@ -6,7 +6,7 @@ log = logging.getLogger('zen.DockerParsers')
 
 
 def parse_docker_output(output, expected_columns):
-    # TODO: handle case where metrics are printed as --, should however not appear in listing active containers
+    # TODO (next): handle case where metrics are printed as --, should however not appear in listing active containers
     # 191ff9626d16   monorepo-docs-depgraph-FRON-STOR-3177     --        -- / --              --        --          --           --
 
     output = output.strip().splitlines()
@@ -16,7 +16,6 @@ def parse_docker_output(output, expected_columns):
     header_line = output[0]
     container_lines = output[1:]
     columns = re.split(r' {2,}', header_line)
-    log.debug('columns : {}'.format(columns))
     if not set(expected_columns).issubset((columns)):
         log.error('Missing column(s) while parsing output: {}'.format(','.join(list(expected_columns - set(columns)))))
         return []
@@ -25,14 +24,7 @@ def parse_docker_output(output, expected_columns):
             header_line.find(c),
             header_line.find(columns[i + 1]) if i + 1 < len(columns) else None)
         for i, c in enumerate(columns)}
-    log.debug('column_indexes : {}'.format(column_indexes))
 
-    # TODO: List comprehension
-    '''
-    result = []
-    for container in container_lines:
-        result.append({column: container[start:end].strip() for column, (start, end) in column_indexes.items()})
-    '''
     result = [{column: container[start:end].strip() for column, (start, end) in column_indexes.items()} for container
               in container_lines]
     log.debug('parse_docker_output result: {}'.format(result))
@@ -67,21 +59,9 @@ def get_docker_data(output, command):
     else:
         log.error('Could not parse the output of type {}'.format(command))
 
-def convert_size(size_bytes):
-    if size_bytes == 0:
-        return "0B"
-    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return "%s %s" % (s, size_name[i])
-
 def convert_from_human(value, unit):
     if float(value) == 0.0:
         return 0.0
-
-    log.debug('CCC value: {}'.format(value))
-    log.debug('CCC unit: {}'.format(unit))
 
     unit = unit.upper()
     size_name = {
@@ -101,18 +81,10 @@ def convert_from_human(value, unit):
         multiplier = 1024 ** size_name[unit.replace('I', '')]
     else:
         multiplier = 1000 ** size_name[unit]
-
-    log.debug('CCC multiplier: {}'.format(multiplier))
-    log.debug('CCC 1: {}'.format(float(value)))
-    log.debug('CCC 2: {}'.format(int(float(value))))
-    log.debug('CCC 3: {}'.format((int(float(value)) * multiplier)))
-
     return (int(float(value) * multiplier))
 
 def stats_pair(metrics_data):
-    log.debug('metrics_data: **{}**'.format(metrics_data))
     r = re.match(r'(\d+\.?\d*)(\w+)\s\/\s(\d+\.?\d*)(\w+)', metrics_data)
-    log.debug('r: **{}**'.format(r))
     if r:
         val1 = convert_from_human(r.group(1), r.group(2))
         val2 = convert_from_human(r.group(3), r.group(4))

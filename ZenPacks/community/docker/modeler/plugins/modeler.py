@@ -6,7 +6,6 @@ from Products.ZenUtils.Utils import prepId
 
 log = logging.getLogger('zen.DockerModeler')
 
-# TODO: cleanup debug
 
 def model_ps_containers(data):
     maps = []
@@ -25,13 +24,10 @@ def model_ps_containers(data):
         c_instance.created = container["CREATED"]
         c_instance.ports = container["PORTS"]
         c_instance.last_seen_model = now
-        # log.debug('c_instance: {}'.format(c_instance))
         maps.append(c_instance)
     return maps
 
 def model_remaining_containers(remaining_instances, containers_lastseen, time_expiry):
-    log.debug('XXX remaining instances: {}'.format(remaining_instances))
-    log.debug('XXX containers_lastseen: {}'.format(len(containers_lastseen)))
     maps = []
     for container in remaining_instances:
         if container in containers_lastseen:
@@ -45,7 +41,6 @@ def model_remaining_containers(remaining_instances, containers_lastseen, time_ex
     return maps
 
 def model_placeholder_container():
-    log.debug('XXX Creating placeholder instance')
     c_instance = ObjectMap()
     c_instance.id = 'container_PLACEHOLDER'
     c_instance.title = 'PLACEHOLDER (Not a real container)'
