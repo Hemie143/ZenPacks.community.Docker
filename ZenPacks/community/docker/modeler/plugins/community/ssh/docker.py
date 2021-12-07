@@ -98,7 +98,6 @@ class docker(PythonPlugin):
                 results[item] = response
             except Exception, e:
                 log.error("{} {} docker modeler error: {}".format(device.id, self.name(), e))
-        log.debug('results: {}'.format(results))
         returnValue(results)
 
     def process(self, device, results, log):
