@@ -7,7 +7,8 @@ log = logging.getLogger('zen.DockerParsers')
 
 def parse_docker_output(output, expected_columns):
     # TODO (next): handle case where metrics are printed as --, should however not appear in listing active containers
-    # 191ff9626d16   monorepo-docs-depgraph-FRON-STOR-3177     --        -- / --              --        --          --           --
+    # 191ff9626d16   monorepo-docs-depgraph-FRON-STOR-3177     --        -- / --              --        --          --
+    # --
 
     output = output.strip().splitlines()
     if not output or len(output) <= 1:
@@ -30,8 +31,11 @@ def parse_docker_output(output, expected_columns):
     log.debug('parse_docker_output result: {}'.format(result))
     return result
 
+
 def get_docker_data(output, command):
-    # {'MEM USAGE / LIMIT': '188.8MiB / 15.65GiB', 'MEM %': '1.18%', 'NAME': 'cer-be1107-job1_pubsub_1', 'NET I/O': '3.75MB / 1.48MB', 'CPU %': '2.10%', 'PIDS': '85', 'CONTAINER ID': '3de668dcaa7b2579ab1d0f5d6e7d6995e1c05e242aa85180a17ee64836f39f19', 'BLOCK I/O': '1.49MB / 0B'}
+    # {'MEM USAGE / LIMIT': '188.8MiB / 15.65GiB', 'MEM %': '1.18%', 'NAME': 'cer-be1107-job1_pubsub_1',
+    # 'NET I/O': '3.75MB / 1.48MB', 'CPU %': '2.10%', 'PIDS': '85',
+    # 'CONTAINER ID': '3de668dcaa7b2579ab1d0f5d6e7d6995e1c05e242aa85180a17ee64836f39f19', 'BLOCK I/O': '1.49MB / 0B'}
 
     # TODO (next): create dict containing columns definitions for matching commands
     if command.upper() == 'PS':
@@ -59,6 +63,7 @@ def get_docker_data(output, command):
     else:
         log.error('Could not parse the output of type {}'.format(command))
 
+
 def convert_from_human(value, unit):
     if float(value) == 0.0:
         return 0.0
@@ -83,6 +88,7 @@ def convert_from_human(value, unit):
         multiplier = 1000 ** size_name[unit]
     return (int(float(value) * multiplier))
 
+
 def stats_pair(metrics_data):
     r = re.match(r'(\d+\.?\d*)(\w+)\s\/\s(\d+\.?\d*)(\w+)', metrics_data)
     if r:
@@ -92,6 +98,7 @@ def stats_pair(metrics_data):
         val1 = 0
         val2 = 0
     return val1, val2
+
 
 def stats_single(metrics_data):
     r = re.match(r'(\d+\.?\d+).*', metrics_data)

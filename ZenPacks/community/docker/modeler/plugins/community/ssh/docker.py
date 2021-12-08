@@ -19,6 +19,7 @@ from ZenPacks.community.Docker.modeler.plugins.modeler import model_ps_container
 
 log = logging.getLogger('zen.DockerPlugin')
 
+
 class docker(PythonPlugin):
     """docker containers modeler plugin."""
 
@@ -52,7 +53,7 @@ class docker(PythonPlugin):
             cls.clients[h] = SSHClient(config)
             try:
                 cls.clients[h].connect()
-            except:
+            except Exception:
                 pass
         return cls.clients[h]
 
@@ -109,7 +110,7 @@ class docker(PythonPlugin):
         if 'containers' in results:
             try:
                 dockerPersistDuration = int(device.zDockerPersistDuration)
-            except:
+            except Exception:
                 dockerPersistDuration = 24
             container_maps = self.model_containers(results['containers'],
                                                    current_containers,

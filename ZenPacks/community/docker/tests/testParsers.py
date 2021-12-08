@@ -16,7 +16,7 @@ class TestParsers(BaseTestCase):
         # You can use the afterSetUp method to create a proper environment for
         # your tests to execute in, or to run common code between the tests.
 
-        #Always call the base class's afterSetUp method first, so things like self.dmd will be available.
+        # Always call the base class's afterSetUp method first, so things like self.dmd will be available.
         super(TestExample, self).afterSetUp()
 
         self.device = self.dmd.Devices.createInstance('testDevice')
@@ -39,6 +39,7 @@ class TestParsers(BaseTestCase):
         # Always call the base class's beforeTearDown method last, so any changes are rolled back
         # correctly.
         super(TestExample, self).beforeTearDown()
+
 
 def test_suite():
     from unittest import TestSuite, makeSuite

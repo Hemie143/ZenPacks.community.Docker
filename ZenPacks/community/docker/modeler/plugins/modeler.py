@@ -27,6 +27,7 @@ def model_ps_containers(data):
         maps.append(c_instance)
     return maps
 
+
 def model_remaining_containers(remaining_instances, containers_lastseen, time_expiry):
     maps = []
     for container in remaining_instances:
@@ -39,6 +40,7 @@ def model_remaining_containers(remaining_instances, containers_lastseen, time_ex
         else:
             log.error('Could not find when {} was last seen'.format(container))
     return maps
+
 
 def model_placeholder_container():
     c_instance = ObjectMap()

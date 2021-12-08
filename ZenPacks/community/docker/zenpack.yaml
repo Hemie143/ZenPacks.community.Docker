@@ -60,8 +60,6 @@ device_classes:
           stats:
             type: Python
             plugin_classname: ZenPacks.community.Docker.dsplugins.containers.stats
-            # TODO: remove next line before final release
-            cycletime: 120
             datapoints:
               # CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
               last_seen:

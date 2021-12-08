@@ -18,6 +18,7 @@ from twisted.internet.defer import returnValue, inlineCallbacks
 # Setup logging
 log = logging.getLogger('zen.Dockercontainers')
 
+
 class stats(PythonDataSourcePlugin):
     proxy_attributes = (
         'zCommandUsername',
@@ -66,7 +67,6 @@ class stats(PythonDataSourcePlugin):
             datasource.plugin_classname,
         )
 
-
     @inlineCallbacks
     def collect(self, config):
         log.debug('Starting docker stats collect')
@@ -107,7 +107,7 @@ class stats(PythonDataSourcePlugin):
         containers_lastseen = ds0.getContainers_lastSeen
         try:
             dockerPersistDuration = int(ds0.zDockerPersistDuration)
-        except:
+        except Exception:
             dockerPersistDuration = 24
         time_expiry = now - int(dockerPersistDuration * 3600)
 
@@ -159,8 +159,8 @@ class stats(PythonDataSourcePlugin):
             else:
                 stats_data = []
                 log.error('XXX Could not collect containers on {}: (code:{}) {}'.format(config.id,
-                                                                                    results['stats'].exitCode,
-                                                                                    results['stats'].output))
+                                                                                        results['stats'].exitCode,
+                                                                                        results['stats'].output))
 
             # Update metrics with docker stats
             log.debug('--- Updating metrics for {} containers'.format(len(stats_data)))
