@@ -14,6 +14,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
 from ZenPacks.community.Docker.lib.parsers import get_docker_data
+from ZenPacks.community.Docker.lib.utils import transform_valid_regex
 from ZenPacks.community.Docker.modeler.plugins.modeler import model_ps_containers, model_remaining_containers, \
     model_placeholder_container
 
@@ -31,6 +32,8 @@ class docker(PythonPlugin):
         'zKeyPath',
         'zDockerPersistDuration',
         'getContainers_lastSeen',
+        'zDockerContainerModeled',
+        'zDockerContainerNotModeled',
     )
 
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
@@ -104,7 +107,7 @@ class docker(PythonPlugin):
     def process(self, device, results, log):
         """Process results. Return iterable of datamaps or None."""
         current_containers = device.getContainers_lastSeen
-        log.debug('--- Current containers: {}'.format(current_containers))
+        log.debug('Current containers: {}'.format(current_containers))
 
         rm = []
         if 'containers' in results:
@@ -112,16 +115,29 @@ class docker(PythonPlugin):
                 dockerPersistDuration = int(device.zDockerPersistDuration)
             except Exception:
                 dockerPersistDuration = 24
-            container_maps = self.model_containers(results['containers'],
+            container_maps = self.model_containers(device,
+                                                   results['containers'],
                                                    current_containers,
                                                    dockerPersistDuration,
                                                    )
             rm.extend(container_maps)
         return rm
 
-    def model_containers(self, result, current_containers, dockerPersistDuration):
+    @staticmethod
+    def validate_modeling_regex(device):
+        log.debug('--- device: {}'.format(device))
+        zDockerContainerModeled = getattr(device, 'zDockerContainerModeled', [])
+        model_list = transform_valid_regex(zDockerContainerModeled)
+        # Make list for services to be ignored
+        zDockerContainerNotModeled = getattr(device, 'zDockerContainerNotModeled', [])
+        ignore_list = transform_valid_regex(zDockerContainerNotModeled)
+        return model_list, ignore_list
+
+    def model_containers(self, device, result, current_containers, dockerPersistDuration):
         if result.exitCode > 0:
             log.error('Could not list containers (exitcode={}) - Error: {}'.format(result.exitCode, result.stderr))
+
+        model_list, ignore_list = self.validate_modeling_regex(device)
 
         # Model the containers
         now = int(time.time())
@@ -133,7 +149,7 @@ class docker(PythonPlugin):
 
         # Model the containers detected with "docker ps"
         containers_ps_data = get_docker_data(result.output, 'PS')
-        containers_maps.extend(model_ps_containers(containers_ps_data))
+        containers_maps.extend(model_ps_containers(containers_ps_data, model_list, ignore_list))
         log.debug('--- Modeled {} containers with docker ps'.format(len(containers_maps)))
 
         # Remove found containers from remaining_instances

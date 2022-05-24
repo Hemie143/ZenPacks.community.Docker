@@ -10,6 +10,7 @@ from Products.ZenUtils.Utils import prepId
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonDataSourcePlugin
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
 from ZenPacks.community.Docker.lib.parsers import convert_from_human, get_docker_data, stats_pair, stats_single
+from ZenPacks.community.Docker.lib.utils import transform_valid_regex
 from ZenPacks.community.Docker.modeler.plugins.modeler import model_ps_containers, model_remaining_containers
 
 # Twisted Imports
@@ -28,6 +29,8 @@ class stats(PythonDataSourcePlugin):
         'zKeyPath',
         'zDockerPersistDuration',
         'getContainers_lastSeen',
+        'zDockerContainerModeled',
+        'zDockerContainerNotModeled',
     )
 
     clients = {}
@@ -121,7 +124,9 @@ class stats(PythonDataSourcePlugin):
         if 'containers' in results:
             if results['containers'].exitCode == 0:
                 containers_ps_data = get_docker_data(results['containers'].output, 'PS')
-                containers_maps.extend(model_ps_containers(containers_ps_data))
+                model_list = transform_valid_regex(ds0.zDockerContainerModeled)
+                ignore_list = transform_valid_regex(ds0.zDockerContainerNotModeled)
+                containers_maps.extend(model_ps_containers(containers_ps_data, model_list, ignore_list))
                 # Remove found containers from remaining_instances
                 ps_instances = ['container_{}'.format(c["CONTAINER ID"]) for c in containers_ps_data]
                 remaining_instances = set(remaining_instances) - set(ps_instances)

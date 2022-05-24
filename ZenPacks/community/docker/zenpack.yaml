@@ -8,6 +8,13 @@ zProperties:
     type: int
     default: 12
     description: Defines in hours how long at least a container should remain visible in Zenoss
+  zDockerContainerModeled:
+    type: lines
+    default: .*
+    description: Sets regular expressions of containers to model
+  zDockerContainerNotModeled:
+    type: lines
+    description: Sets regular expressions of containers to not model
 
 classes:
   DockerContainer:

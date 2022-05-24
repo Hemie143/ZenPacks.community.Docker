@@ -3,12 +3,12 @@
 # or saved.  Do not modify them directly here.
 # NB: PACKAGES is deprecated
 NAME = "ZenPacks.community.Docker"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 AUTHOR = "Laurent Hemeryck"
 LICENSE = "GPLv2"
 NAMESPACE_PACKAGES = ['ZenPacks', 'ZenPacks.community']
 PACKAGES = ['ZenPacks', 'ZenPacks.community', 'ZenPacks.community.Docker']
-INSTALL_REQUIRES = ['ZenPacks.zenoss.ZenPackLib', 'ZenPacks.zenoss.PythonCollector']
+INSTALL_REQUIRES = ['ZenPacks.zenoss.ZenPackLib', 'ZenPacks.zenoss.PythonCollector', 'ZenPacks.zenoss.LinuxMonitor']
 COMPAT_ZENOSS_VERS = ""
 PREV_ZENPACK_NAME = ""
 # STOP_REPLACEMENTS
