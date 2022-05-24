@@ -97,7 +97,7 @@ device_classes:
               CPU Usage:
                 dpName: stats_cpu_usage_percent
                 format: "%7.2lf %%"
-                legend: CPU Usage
+                legend:  CPU Usage
                 sequence: 1
           Memory Usage:
             units: bytes
@@ -163,3 +163,11 @@ device_classes:
                 format: "%7.0lf"
                 legend:  Number of processes
                 sequence: 1
+
+event_classes:
+  /Perf/CPU/Docker:
+    remove: false
+  /Perf/FileSystem/Docker:
+    remove: false
+  /Perf/Memory/Docker:
+    remove: false
