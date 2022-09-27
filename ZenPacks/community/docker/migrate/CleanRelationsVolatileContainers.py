@@ -15,6 +15,9 @@ class CleanRelationsVolatileContainers(ZenPackMigration):
         for d in dc.getSubDevicesGen():
             if hasattr(d, 'dockerContainers'):
                 log.info('Device {} has {} dockerContainers'.format(d.id, len(d.dockerContainers())))
+                for dockerContainer in d.dockerContainers():
+                    log.info('Device {} has dockerContainers relationship: {}'.format(d.id, dockerContainer.id))
+                    d._delObject(dockerContainer.id)
                 d._delObject('dockerContainers')
                 r_count += 1
                 log.info('Device {} check: {}'.format(d.id, hasattr(d, 'dockerContainers')))
@@ -22,9 +25,6 @@ class CleanRelationsVolatileContainers(ZenPackMigration):
         log.info('Cleaned up relationships for {} devices'.format(r_count))
         '''
         log.info('Device {} has {} dockerContainers'.format(d.id, len(d.dockerContainers())))
-        for dockerContainer in d.dockerContainers():
-            log.info('Device {} has dockerContainers relationship: {}'.format(d.id, dockerContainer.id))
-            # d._delObject(dockerContainer.id)
         log.info('Device {} has {} dockerContainers'.format(d.id, len(d.dockerContainers())))
         '''
 
