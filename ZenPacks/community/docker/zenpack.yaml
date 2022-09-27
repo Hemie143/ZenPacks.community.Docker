@@ -3,6 +3,7 @@ name: ZenPacks.community.Docker
 zProperties:
   DEFAULTS:
     category: DockerCustom
+  # TODO: Some zProps to clean up
   zDockerPersistDuration:
     type: int
     default: 12
@@ -14,6 +15,49 @@ zProperties:
   zDockerContainerNotModeled:
     type: lines
     description: Sets regular expressions of containers to not model
+
+classes:
+  DockerContainerCustom:
+    base: [zenpacklib.Component]
+    meta_type: dockerContainerCustom
+  DockerContainerPersistent:
+    base: [DockerContainerCustom]
+    label: Docker Volatile Container
+    order: 1
+    properties:
+      container_status:
+        label: Status
+        default: UNKNOWN
+        grid_display: true
+        order: 1
+      image:
+        label: Image
+        order: 2
+      container_id:
+        label: Container ID
+        order: 3
+      command:
+        label: Command
+        order: 4
+      created:
+        label: Created
+        order: 5
+      ports:
+        label: Ports
+        order: 6
+      last_seen_model:
+        label: Last seen Model
+        type: int
+        grid_display: false
+        default: 0
+      last_seen_collect:
+        label: Last seen Collect
+        type: int
+        datapoint: stats_last_seen
+        grid_display: false
+
+class_relationships:
+  - Products.ZenModel.Device.Device 1:MC DockerContainerPersistent
 
 event_classes:
   /Perf/CPU/Docker:
