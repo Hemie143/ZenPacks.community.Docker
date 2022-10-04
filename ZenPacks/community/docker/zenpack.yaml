@@ -3,18 +3,10 @@ name: ZenPacks.community.Docker
 zProperties:
   DEFAULTS:
     category: DockerCustom
-  # TODO: Some zProps to clean up
-  zDockerPersistDuration:
-    type: int
-    default: 12
-    description: Defines in hours how long at least a container should remain visible in Zenoss
   zDockerContainerModeled:
     type: lines
     default: .*
     description: Sets regular expressions of containers to model
-  zDockerContainerNotModeled:
-    type: lines
-    description: Sets regular expressions of containers to not model
 
 classes:
   DockerContainerCustom:
@@ -79,7 +71,7 @@ device_classes:
               CPU Usage:
                 dpName: stats_cpuusagepercent
                 format: "%7.2lf %%"
-                legend:  CPU Usage
+                legend: ':CPU Usage'
                 sequence: 1
           Memory Usage:
             units: bytes
@@ -89,12 +81,12 @@ device_classes:
               Limit:
                 dpName: stats_memorylimit
                 format: "%7.2lf%s"
-                legend:  Memory Limit
+                legend: 'Memory Limit'
                 sequence: 1
               Used:
                 dpName: stats_memoryusage
                 format: "%7.2lf%s"
-                legend:  Memory Used
+                legend: 'Memory Used'
                 sequence: 2
           Memory Usage Percentage:
             units: percent
@@ -104,7 +96,7 @@ device_classes:
               Memory Usage:
                 dpName: stats_memoryusagepercent
                 format: "%7.2lf %%"
-                legend:  Memory Usage
+                legend: 'Memory Usage'
                 sequence: 1
           Network:
             units: bytes
@@ -114,12 +106,12 @@ device_classes:
               Network Inbound:
                 dpName: stats_networkinbound
                 format: "%7.2lf%s"
-                legend:  Network Inbound
+                legend: 'Network Inbound'
                 sequence: 1
               Network Outbound:
                 dpName: stats_networkoutbound
                 format: "%7.2lf%s"
-                legend:  Network Outbound
+                legend: 'Network Outbound'
                 sequence: 2
           Blocks:
             units: bytes
@@ -142,7 +134,8 @@ device_classes:
             graphpoints:
               Number of processes:
                 dpName: stats_numprocs
-                format: "%7.0lf"
+                # TODO: Integer format
+                format: "%7.0le"
                 legend: "Number of processes"
                 sequence: 1
           Containers:
@@ -151,7 +144,8 @@ device_classes:
             graphpoints:
               Number of containers:
                 dpName: stats_numcontainers
-                format: "%7.0lf"
+                format: "%7.0le"
+                # TODO: Fix those damned legends
                 legend: "Number of containers"
                 sequence: 1
 

@@ -9,6 +9,3 @@ def optional_import(module_name, patch_module_name):
         pass
     else:
         import_module('.{0}'.format(patch_module_name), 'ZenPacks.community.Docker.patches')
-
-
-optional_import('Products.ZenModel', 'platform')

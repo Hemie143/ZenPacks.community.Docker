@@ -5,6 +5,7 @@ import logging
 log = logging.getLogger('zen.DockerParsers')
 
 
+
 def parse_docker_output(output, expected_columns):
     # TODO (next): handle case where metrics are printed as --, should however not appear in listing active containers
     # 191ff9626d16   monorepo-docs-depgraph-FRON-STOR-3177     --        -- / --              --        --          --
