@@ -8,29 +8,26 @@ from Products.ZenUtils.Utils import prepId
 log = logging.getLogger('zen.DockerModeler')
 
 
-def check_containers_modeled(model_list, ignore_list, title):
-    # Return False if container is not to be modeled
-    for name in ignore_list:
-        if re.match(name, title):
-            return False
-
+def check_containers_modeled(model_list, title):
     # Return True if container is to be modeled or if model_list is empty
-    if model_list:
+    log.debug('check_containers_modeled: {}'.format(bool(model_list == [])))
+    if model_list and len(model_list) > 0:
         for name in model_list:
+            # TODO: Check if name is empty ? Check that this is a valid regex ?
             if re.match(name, title):
                 return True
         return False
     else:
-        return True
+        return False
 
 
-def model_ps_containers(data, model_list, ignore_list):
+def model_ps_containers(data, model_list):
     maps = []
     now = int(time.time())
     for container in data:
         title = container["NAMES"]
-        model_enable = check_containers_modeled(model_list, ignore_list, title)
-        log.debug('model_enable: {}'.format(model_enable))
+        model_enable = check_containers_modeled(model_list, title)
+        log.debug('model_enable: {}={}'.format(title, model_enable))
         if model_enable is False:
             continue
         c_instance = ObjectMap()
@@ -63,12 +60,18 @@ def model_remaining_containers(remaining_instances, containers_lastseen, time_ex
             log.error('Could not find when {} was last seen'.format(container))
     return maps
 
-
-def model_placeholder_container():
+def generate_container_others():
     c_instance = ObjectMap()
-    c_instance.id = 'container_PLACEHOLDER'
-    c_instance.title = 'PLACEHOLDER (Not a real container)'
-    c_instance.container_status = 'EXITED'
-    c_instance.last_seen_model = 0
-    log.debug('c_instance: {}'.format(c_instance))
+    title = '_Other Containers'
+    instance_id = prepId('container_others')
+    c_instance.id = instance_id
+    c_instance.title = title
+    return c_instance
+
+def generate_container_total():
+    c_instance = ObjectMap()
+    title = '_Total of all Containers'
+    instance_id = prepId('container_total')
+    c_instance.id = instance_id
+    c_instance.title = title
     return c_instance

@@ -20,44 +20,140 @@ classes:
   DockerContainerCustom:
     base: [zenpacklib.Component]
     meta_type: dockerContainerCustom
-  DockerContainerPersistent:
+  DockerContainerVolatile:
     base: [DockerContainerCustom]
     label: Docker Volatile Container
     order: 1
     properties:
-      container_status:
-        label: Status
-        default: UNKNOWN
+      num_containers:
+        label: Active containers
+        type: int
+        default: 0
         grid_display: true
         order: 1
-      image:
-        label: Image
-        order: 2
-      container_id:
-        label: Container ID
-        order: 3
-      command:
-        label: Command
-        order: 4
-      created:
-        label: Created
-        order: 5
-      ports:
-        label: Ports
-        order: 6
-      last_seen_model:
-        label: Last seen Model
-        type: int
+      regex:
+        label: Regex
         grid_display: false
-        default: 0
-      last_seen_collect:
-        label: Last seen Collect
-        type: int
-        datapoint: stats_last_seen
-        grid_display: false
+    monitoring_templates:
+      - DockerContainerVolatile
 
 class_relationships:
-  - Products.ZenModel.Device.Device 1:MC DockerContainerPersistent
+  - Products.ZenModel.Device.Device 1:MC DockerContainerVolatile
+
+device_classes:
+  /Server/SSH:
+    templates:
+      DockerContainerVolatile:
+        targetPythonClass: ZenPacks.community.Docker.DockerContainerVolatile
+        datasources:
+          stats:
+            type: Python
+            plugin_classname: ZenPacks.community.Docker.dsplugins.containers.stats
+            datapoints:
+              # CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
+              cpuusagepercent:
+                rrdtype: GAUGE_MIN_0_MAX_100
+              memorylimit:
+                rrdtype: GAUGE_MIN_0
+              memoryusage:
+                rrdtype: GAUGE_MIN_0
+              memoryusagepercent:
+                rrdtype: GAUGE_MIN_0_MAX_100
+              networkinbound:
+                rrdtype: GAUGE_MIN_0
+              networkoutbound:
+                rrdtype: GAUGE_MIN_0
+              blockread:
+                rrdtype: GAUGE_MIN_0
+              blockwrite:
+                rrdtype: GAUGE_MIN_0
+              numprocs:
+                rrdtype: GAUGE_MIN_0
+              numcontainers:
+                rrdtype: GAUGE_MIN_0
+        graphs:
+          CPU Usage:
+            units: percent
+            miny: 0
+            graphpoints:
+              CPU Usage:
+                dpName: stats_cpuusagepercent
+                format: "%7.2lf %%"
+                legend:  CPU Usage
+                sequence: 1
+          Memory Usage:
+            units: bytes
+            miny: 0
+            base: true
+            graphpoints:
+              Limit:
+                dpName: stats_memorylimit
+                format: "%7.2lf%s"
+                legend:  Memory Limit
+                sequence: 1
+              Used:
+                dpName: stats_memoryusage
+                format: "%7.2lf%s"
+                legend:  Memory Used
+                sequence: 2
+          Memory Usage Percentage:
+            units: percent
+            miny: 0
+            maxy: 100
+            graphpoints:
+              Memory Usage:
+                dpName: stats_memoryusagepercent
+                format: "%7.2lf %%"
+                legend:  Memory Usage
+                sequence: 1
+          Network:
+            units: bytes
+            miny: 0
+            base: true
+            graphpoints:
+              Network Inbound:
+                dpName: stats_networkinbound
+                format: "%7.2lf%s"
+                legend:  Network Inbound
+                sequence: 1
+              Network Outbound:
+                dpName: stats_networkoutbound
+                format: "%7.2lf%s"
+                legend:  Network Outbound
+                sequence: 2
+          Blocks:
+            units: bytes
+            miny: 0
+            base: true
+            graphpoints:
+              Block reads:
+                dpName: stats_blockread
+                format: "%7.2lf%s"
+                legend:  Block reads
+                sequence: 1
+              Block writes:
+                dpName: stats_blockwrite
+                format: "%7.2lf%s"
+                legend:  Block writes
+                sequence: 2
+          Processes:
+            units: processes
+            miny: 0
+            graphpoints:
+              Number of processes:
+                dpName: stats_numprocs
+                format: "%7.0lf"
+                legend: "Number of processes"
+                sequence: 1
+          Containers:
+            units: containers
+            miny: 0
+            graphpoints:
+              Number of containers:
+                dpName: stats_numcontainers
+                format: "%7.0lf"
+                legend: "Number of containers"
+                sequence: 1
 
 event_classes:
   /Perf/CPU/Docker:

@@ -27,10 +27,8 @@ class stats(PythonDataSourcePlugin):
         'zCommandPort',
         'zCommandCommandTimeout',
         'zKeyPath',
-        'zDockerPersistDuration',
-        'getContainers_lastSeen',
         'zDockerContainerModeled',
-        'zDockerContainerNotModeled',
+        'regex',
     )
 
     clients = {}
@@ -107,69 +105,93 @@ class stats(PythonDataSourcePlugin):
 
         # Model the containers
         ds0 = config.datasources[0]
-        containers_lastseen = ds0.getContainers_lastSeen
-        try:
-            dockerPersistDuration = int(ds0.zDockerPersistDuration)
-        except Exception:
-            dockerPersistDuration = 24
-        time_expiry = now - int(dockerPersistDuration * 3600)
+        dockerContainerModeled = ds0.zDockerContainerModeled
 
-        current_instances = [c.component for c in config.datasources]
-        remaining_instances = list(current_instances)
-        log.debug('--- Current containers: {}'.format(len(current_instances)))
-        log.debug('--- Found data for {} current containers'.format(len(ds0.getContainers_lastSeen)))
+        for ds in config.datasources:
+            log.debug('ds: {}'.format(ds.__dict__))
+            log.debug('ds: {}'.format(ds.component))
 
-        containers_maps = []
-        # Model the containers detected with "docker ps"
-        if 'containers' in results:
-            if results['containers'].exitCode == 0:
-                containers_ps_data = get_docker_data(results['containers'].output, 'PS')
-                model_list = transform_valid_regex(ds0.zDockerContainerModeled)
-                ignore_list = transform_valid_regex(ds0.zDockerContainerNotModeled)
-                containers_maps.extend(model_ps_containers(containers_ps_data, model_list, ignore_list))
-                # Remove found containers from remaining_instances
-                ps_instances = ['container_{}'.format(c["CONTAINER ID"]) for c in containers_ps_data]
-                remaining_instances = set(remaining_instances) - set(ps_instances)
-            else:
-                containers = []
-                log.error('Could not collect containers on {}: (code:{}) {}'.format(config.id,
-                                                                                    results['containers'].exitCode,
-                                                                                    results['containers'].output))
 
-        log.debug('--- Modeled {} containers with docker ps'.format(len(containers_maps)))
-        log.debug('--- Remaining {} instances after docker ps'.format(len(remaining_instances)))
+        log.debug('zDockerContainerModeled: {}'.format(dockerContainerModeled))
+        model_list = transform_valid_regex(dockerContainerModeled)
+        log.debug('model_list: {}'.format(model_list))
 
-        # Check if remaining instances have expired
-        containers_maps.extend(model_remaining_containers(remaining_instances, containers_lastseen, time_expiry))
-        log.debug('--- Modeled {} containers after checking old instances'.format(len(containers_maps)))
 
-        # There must be at least one placeholder instance or the collector won't run. Emptying the list is suicide
-        if len(containers_maps) == 0:
-            containers_maps.append(model_placeholder_container())
-
-        data['maps'].append(RelationshipMap(compname='',
-                                            relname='dockerContainers',
-                                            modname='ZenPacks.community.Docker.DockerContainer',
-                                            objmaps=containers_maps,
-                                            ))
-
-        # Fill in metrics for found containers
         # Let's suppose that the containers in stats are identical to those found in the ps output
         if 'stats' in results:
             if results['stats'].exitCode == 0:
                 stats_data = get_docker_data(results['stats'].output, 'STATS')
 
-                # log.debug('stats_data: {}'.format(stats_data))
+                log.debug('stats_data: {}'.format(stats_data))
                 # stats_data = stats_data[:45]
             else:
                 stats_data = []
-                log.error('XXX Could not collect containers on {}: (code:{}) {}'.format(config.id,
-                                                                                        results['stats'].exitCode,
-                                                                                        results['stats'].output))
-
+                log.error('Could not collect containers on {}: (code:{}) {}'.format(config.id,
+                                                                                    results['stats'].exitCode,
+                                                                                    results['stats'].output))
+            # [{'MEM USAGE / LIMIT': '207.6MiB / 19.59GiB', 'MEM %': '1.03%', 'NAME': 'practical_snyder', 'NET I/O': '7.54kB / 2.09kB', 'CPU %': '119.56%', 'PIDS': '27', 'CONTAINER ID': 'e757a32379bb1b6c5bf49c6df203af5ac02a0a2cca6c51877144147fd46e3bbb', 'BLOCK I/O': '0B / 4.33MB'}, {'MEM USAGE / LIMIT': '1.803GiB / 19.59GiB', 'MEM %': '9.20%', 'NAME': 'monorepo-build-FRON-FFM6291-BF-4-1664805967', 'NET I/O': '20.4kB / 6.47kB', 'CPU %': '149.99%', 'PIDS': '45', 'CONTAINER ID': 'e5475b2e819a05f118878ae55c1a2da8b54c3eaedb8580f2938d7b08bf637ef0', 'BLOCK I/O': '106kB / 0B'}]
+            # [{'MEM USAGE / LIMIT': '1.129GiB / 19.59GiB', 'MEM %': '5.76%', 'NAME': 'wizardly_franklin', 'NET I/O': '656B / 0B', 'CPU %': '493.05%', 'PIDS': '46', 'CONTAINER ID': '1a6c6fee5a9c66d4da118dce7fd12f85fd2f05a39aa8a3db92e0bc442a68a8a5', 'BLOCK I/O': '108MB / 24.6kB'}, {'MEM USAGE / LIMIT': '2.729GiB / 19.59GiB', 'MEM %': '13.93%', 'NAME': 'monorepo-test-FRON-FFM-TES2-6218-1664807474', 'NET I/O': '80.2MB / 6.87MB', 'CPU %': '103.48%', 'PIDS': '43', 'CONTAINER ID': 'f107b2b852e5b327a8abc35e6fcb6498b052782ce14252665cbbeabdd6251897', 'BLOCK I/O': '489MB / 192GB'}]
+            stats_data = [{'MEM USAGE / LIMIT': '1.129GiB / 19.59GiB', 'MEM %': '5.76%', 'NAME': 'wizardly_franklin', 'NET I/O': '656B / 0B', 'CPU %': '493.05%', 'PIDS': '46', 'CONTAINER ID': '1a6c6fee5a9c66d4da118dce7fd12f85fd2f05a39aa8a3db92e0bc442a68a8a5', 'BLOCK I/O': '108MB / 24.6kB'}, {'MEM USAGE / LIMIT': '2.729GiB / 19.59GiB', 'MEM %': '13.93%', 'NAME': 'monorepo-test-FRON-FFM-TES2-6218-1664807474', 'NET I/O': '80.2MB / 6.87MB', 'CPU %': '103.48%', 'PIDS': '43', 'CONTAINER ID': 'f107b2b852e5b327a8abc35e6fcb6498b052782ce14252665cbbeabdd6251897', 'BLOCK I/O': '489MB / 192GB'}]
             # Update metrics with docker stats
-            log.debug('--- Updating metrics for {} containers'.format(len(stats_data)))
-            remaining_instances = list(current_instances)
+            log.debug('--- Updating metrics for {} container(s)'.format(len(stats_data)))
+
+            # Parse the named containers
+            for ds in config.datasources:
+                log.debug('model_list regex: {}'.format(ds.regex))
+                if not ds.regex:
+                    continue
+                ds_metrics = self.init_metrics()
+                for container_stats in stats_data:
+                    container_name = container_stats['NAME']
+                    log.debug('container_name: {}'.format(container_name))
+                    r = re.match(ds.regex, container_name)
+                    log.debug('r: {}'.format(r))
+                    if r:
+                        temp = self.parse_container_metrics(container_stats)
+                        log.debug('temp: {}'.format(temp))
+                        ds_metrics = self.sum_metrics(ds_metrics, temp)
+                log.debug('ds_metrics: {}'.format(ds_metrics))
+                for k, v in ds_metrics.items():
+                    data['values'][ds.component][k] = v
+
+            # Parse the other containers and make a total
+            log.debug('---------------------------Processing others and total')
+            others_metrics = self.init_metrics()
+            total_metrics = self.init_metrics()
+            for container_stats in stats_data:
+                # log.debug('container_stats: {}'.format(container_stats))
+                container_name = container_stats['NAME']
+                log.debug('*******************container_name: {}'.format(container_name))
+                container_metrics = self.parse_container_metrics(container_stats)
+                log.debug('c_metrics: {}'.format(container_metrics))
+                total_metrics = self.sum_metrics(total_metrics, container_metrics)
+                container_named = False
+                # TODO: replace following with list comp ?
+                for ds in config.datasources:
+                    if not ds.regex:
+                        continue
+                    log.debug('ds.regex: {}'.format(ds.regex))
+                    r = re.match(ds.regex, container_name)
+                    log.debug('r: {}'.format(r))
+                    # TODO: stupid code
+                    if r:
+                        container_named = True
+                        break
+                if not container_named:
+                    others_metrics = self.sum_metrics(others_metrics, container_metrics)
+                log.debug('****other_metrics: {}'.format(others_metrics))
+                log.debug('****total_metrics: {}'.format(total_metrics))
+
+            log.debug('----other_metrics: {}'.format(others_metrics))
+            log.debug('----total_metrics: {}'.format(total_metrics))
+            for k, v in others_metrics.items():
+                data['values']['container_others'][k] = v
+            for k, v in total_metrics.items():
+                data['values']['container_total'][k] = v
+
+            log.debug('----data: {}'.format(data))
+
+            '''
             for container_stats in stats_data:
                 log.debug('container_stats: {}'.format(container_stats))
                 c_id = 'container_{}'.format(container_stats["CONTAINER ID"])
@@ -190,29 +212,66 @@ class stats(PythonDataSourcePlugin):
                 data['values'][instance]['stats_block_read'] = 0
                 data['values'][instance]['stats_block_write'] = 0
                 data['values'][instance]['stats_num_procs'] = 0
-
+            '''
         return data
+
+    @staticmethod
+    def sum_metrics(metrics1, metrics2):
+        # TODO: Use a dict comprehension ?
+        # CONTAINER ID - NAME - CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
+        metrics = dict()
+        metrics_dps = [
+            'stats_cpuusagepercent',
+            'stats_memoryusage',
+            'stats_memorylimit',
+            'stats_memoryusagepercent',
+            'stats_networkinbound',
+            'stats_networkoutbound',
+            'stats_blockread',
+            'stats_blockwrite',
+            'stats_numprocs',
+            'stats_numcontainers',
+        ]
+        for m in metrics_dps:
+            metrics[m] = metrics1[m] + metrics2[m]
+        return metrics
 
     @staticmethod
     def parse_container_metrics(container_stats):
         # CONTAINER ID - NAME - CPU % - MEM USAGE / LIMIT - MEM %  - NET I/O - BLOCK I/O - PIDS
         metrics = dict()
-        container_id = prepId('container_{}'.format(container_stats["CONTAINER ID"]))
         # CPU
         # stats is here the name of the class
-        metrics['stats_cpu_usage_percent'] = stats_single(container_stats["CPU %"])
+        metrics['stats_cpuusagepercent'] = stats_single(container_stats["CPU %"])
         # MEM USAGE / LIMIT
-        metrics['stats_memory_usage'], metrics['stats_memory_limit'] = stats_pair(
+        metrics['stats_memoryusage'], metrics['stats_memorylimit'] = stats_pair(
             container_stats["MEM USAGE / LIMIT"])
         # MEM %
-        metrics['stats_memory_usage_percent'] = stats_single(container_stats["MEM %"])
+        metrics['stats_memoryusagepercent'] = stats_single(container_stats["MEM %"])
         # NET I/O
-        metrics['stats_network_inbound'], metrics['stats_network_outbound'] = stats_pair(
+        metrics['stats_networkinbound'], metrics['stats_networkoutbound'] = stats_pair(
             container_stats["NET I/O"])
         # BLOCK I / O
-        metrics['stats_block_read'], metrics['stats_block_write'] = stats_pair(
+        metrics['stats_blockread'], metrics['stats_blockwrite'] = stats_pair(
             container_stats["BLOCK I/O"])
         # PIDS
-        metrics['stats_num_procs'] = stats_single(container_stats["PIDS"])
+        metrics['stats_numprocs'] = stats_single(container_stats["PIDS"])
+        metrics['stats_numcontainers'] = 1
+        return metrics
 
-        return {container_id: metrics}
+
+    @staticmethod
+    def init_metrics():
+        metrics = {
+            "stats_cpuusagepercent": 0,
+            "stats_memoryusage": 0,
+            "stats_memorylimit": 0,
+            "stats_memoryusagepercent": 0,
+            "stats_networkinbound": 0,
+            "stats_networkoutbound": 0,
+            "stats_blockread": 0,
+            "stats_blockwrite": 0,
+            "stats_numprocs": 0,
+            "stats_numcontainers": 0,
+        }
+        return metrics

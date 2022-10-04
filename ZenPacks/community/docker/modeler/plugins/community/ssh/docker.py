@@ -4,19 +4,17 @@
 import logging
 import os
 import re
-import time
 
 # Zenoss Imports
+from Products.ZenUtils.Utils import prepId
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
 # Twisted Imports
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
-from ZenPacks.community.Docker.lib.parsers import get_docker_data
 from ZenPacks.community.Docker.lib.utils import transform_valid_regex
-from ZenPacks.community.Docker.modeler.plugins.modeler import model_ps_containers, model_remaining_containers, \
-    model_placeholder_container
+from ZenPacks.community.Docker.modeler.plugins.modeler import generate_container_others, generate_container_total
 
 log = logging.getLogger('zen.DockerPlugin')
 
@@ -30,10 +28,7 @@ class docker(PythonPlugin):
         'zCommandPort',
         'zCommandCommandTimeout',
         'zKeyPath',
-        'zDockerPersistDuration',
-        'getContainers_lastSeen',
         'zDockerContainerModeled',
-        'zDockerContainerNotModeled',
     )
 
     deviceProperties = PythonPlugin.deviceProperties + requiredProperties
@@ -42,7 +37,7 @@ class docker(PythonPlugin):
 
     commands = {
         'version': 'docker -v',
-        'containers': 'sudo docker ps --no-trunc',
+        # 'containers': 'sudo docker ps --no-trunc',
     }
 
     @classmethod
@@ -96,6 +91,7 @@ class docker(PythonPlugin):
         log.debug('client: {}'.format(client))
 
         results = {}
+        # TODO: The command is not required, but probably a simple check on docker presence.
         for item, cmd in self.commands.items():
             try:
                 response = yield client.run(cmd, timeout=timeout)
@@ -104,22 +100,13 @@ class docker(PythonPlugin):
                 log.error("{} {} docker modeler error: {}".format(device.id, self.name(), e))
         returnValue(results)
 
+
     def process(self, device, results, log):
         """Process results. Return iterable of datamaps or None."""
-        current_containers = device.getContainers_lastSeen
-        log.debug('Current containers: {}'.format(current_containers))
-
+        # TODO: Clean up process
         rm = []
-        if 'containers' in results:
-            try:
-                dockerPersistDuration = int(device.zDockerPersistDuration)
-            except Exception:
-                dockerPersistDuration = 24
-            container_maps = self.model_containers(device,
-                                                   results['containers'],
-                                                   current_containers,
-                                                   dockerPersistDuration,
-                                                   )
+        if 'version' in results:
+            container_maps = self.model_containers(device, results['version'])
             rm.extend(container_maps)
         return rm
 
@@ -128,46 +115,49 @@ class docker(PythonPlugin):
         log.debug('--- device: {}'.format(device))
         zDockerContainerModeled = getattr(device, 'zDockerContainerModeled', [])
         model_list = transform_valid_regex(zDockerContainerModeled)
-        # Make list for services to be ignored
-        zDockerContainerNotModeled = getattr(device, 'zDockerContainerNotModeled', [])
-        ignore_list = transform_valid_regex(zDockerContainerNotModeled)
-        return model_list, ignore_list
+        return model_list
 
-    def model_containers(self, device, result, current_containers, dockerPersistDuration):
+    def model_containers(self, device, result):
+        # [{'STATUS': 'Up 52 seconds', 'CREATED': '53 seconds ago', 'IMAGE': 'docker.fednot.be:5000/monorepo-install:FRON-FFM-6191', 'COMMAND': '"/usr/local/bin/mvn-entrypoint.sh ./tools/bamboo/build.sh 6191 NA NA AX23C0LVSTUAEGXJMY36 C0vp5TmSHLxoQrL+qy=7B0dpYGkbqHzNp9olzG7m 2 2"', 'NAMES': 'monorepo-build-FRON-FFM-BUIL2-6191-1664443247', 'CONTAINER ID': '5b16dcbe5ee1e9465856f166995d31f51c40ef98628c1914bbfc77b568215ada', 'PORTS': ''}]
+        # TODO: Result is probably not required
         if result.exitCode > 0:
             log.error('Could not list containers (exitcode={}) - Error: {}'.format(result.exitCode, result.stderr))
 
-        model_list, ignore_list = self.validate_modeling_regex(device)
+        model_list = self.validate_modeling_regex(device)
+        log.debug('model_list: {}'.format(model_list))
 
         # Model the containers
-        now = int(time.time())
-        time_expiry = now - int(dockerPersistDuration * 3600)
         rm = []
         containers_maps = []
-        remaining_instances = list(current_containers.keys())
-        log.debug('--- Remaining instances: {}'.format(len(remaining_instances)))
 
-        # Model the containers detected with "docker ps"
-        containers_ps_data = get_docker_data(result.output, 'PS')
-        containers_maps.extend(model_ps_containers(containers_ps_data, model_list, ignore_list))
-        log.debug('--- Modeled {} containers with docker ps'.format(len(containers_maps)))
+        # Model the containers based on the model list
+        # TODO: What if some pattern are redundant ? (e.g. "cer-.*" and "cer-bri-.*")
+        for name in model_list:
+            if not name:
+                continue
+            try:
+                re.compile(name)
+            except:
+                log.warning('Invalid regex in zDockerContainerModeled: {}'.format(name))
+                continue
+            c_instance = ObjectMap()
+            instance_id = prepId('container_{}'.format(name))
+            log.debug('id: **{}**'.format(instance_id))
+            c_instance.id = instance_id
+            c_instance.title = name
+            c_instance.regex = name
+            log.debug('c_instance: {}'.format(c_instance))
+            containers_maps.append(c_instance)
 
-        # Remove found containers from remaining_instances
-        ps_instances = ['container_{}'.format(c["CONTAINER ID"]) for c in containers_ps_data]
-        remaining_instances = set(remaining_instances) - set(ps_instances)
-        log.debug('--- Remaining {} instances after docker ps'.format(remaining_instances))
+        # Add instance for containers not included
+        containers_maps.append(generate_container_others())
 
-        # Check if remaining instances have expired
-        containers_maps.extend(model_remaining_containers(remaining_instances, current_containers, time_expiry))
-        log.debug('--- Modeled {} containers in total after keeping old instances'.format(len(containers_maps)))
-
-        # If no container is present, create a placeholder so that the datasource is running
-        if len(containers_maps) == 0:
-            containers_maps.append(model_placeholder_container())
+        # Add instance for grand total
+        containers_maps.append(generate_container_total())
 
         rm.append(RelationshipMap(compname='',
-                                  relname='dockerContainers',
-                                  modname='ZenPacks.community.Docker.DockerContainer',
+                                  relname='dockerContainerVolatiles',
+                                  modname='ZenPacks.community.Docker.DockerContainerVolatile',
                                   objmaps=containers_maps,
                                   ))
         return rm
