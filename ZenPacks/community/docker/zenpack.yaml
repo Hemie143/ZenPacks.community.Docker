@@ -71,7 +71,7 @@ device_classes:
               CPU Usage:
                 dpName: stats_cpuusagepercent
                 format: "%7.2lf %%"
-                legend: ':CPU Usage'
+                legend: "bug CPU Usage"
                 sequence: 1
           Memory Usage:
             units: bytes
@@ -81,12 +81,12 @@ device_classes:
               Limit:
                 dpName: stats_memorylimit
                 format: "%7.2lf%s"
-                legend: 'Memory Limit'
+                legend: "bug Memory Limit"
                 sequence: 1
               Used:
                 dpName: stats_memoryusage
                 format: "%7.2lf%s"
-                legend: 'Memory Used'
+                legend: "bug Memory Used"
                 sequence: 2
           Memory Usage Percentage:
             units: percent
@@ -96,7 +96,7 @@ device_classes:
               Memory Usage:
                 dpName: stats_memoryusagepercent
                 format: "%7.2lf %%"
-                legend: 'Memory Usage'
+                legend: "bug Memory Usage"
                 sequence: 1
           Network:
             units: bytes
@@ -106,12 +106,12 @@ device_classes:
               Network Inbound:
                 dpName: stats_networkinbound
                 format: "%7.2lf%s"
-                legend: 'Network Inbound'
+                legend: "bug Network Inbound"
                 sequence: 1
               Network Outbound:
                 dpName: stats_networkoutbound
                 format: "%7.2lf%s"
-                legend: 'Network Outbound'
+                legend: "bug Network Outbound"
                 sequence: 2
           Blocks:
             units: bytes
@@ -121,12 +121,12 @@ device_classes:
               Block reads:
                 dpName: stats_blockread
                 format: "%7.2lf%s"
-                legend:  Block reads
+                legend: "bug Block reads"
                 sequence: 1
               Block writes:
                 dpName: stats_blockwrite
                 format: "%7.2lf%s"
-                legend:  Block writes
+                legend: "bug Block writes"
                 sequence: 2
           Processes:
             units: processes
@@ -134,9 +134,8 @@ device_classes:
             graphpoints:
               Number of processes:
                 dpName: stats_numprocs
-                # TODO: Integer format
-                format: "%7.0le"
-                legend: "Number of processes"
+                format: "%7.0lf"
+                legend: "bug Number of processes"
                 sequence: 1
           Containers:
             units: containers
@@ -144,9 +143,8 @@ device_classes:
             graphpoints:
               Number of containers:
                 dpName: stats_numcontainers
-                format: "%7.0le"
-                # TODO: Fix those damned legends
-                legend: "Number of containers"
+                format: "%7.0lf"
+                legend: "bug Number of containers"
                 sequence: 1
 
 event_classes:
