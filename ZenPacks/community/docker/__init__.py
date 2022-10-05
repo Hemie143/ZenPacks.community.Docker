@@ -1,7 +1,6 @@
 import os
 
 from ZenPacks.zenoss.ZenPackLib import zenpacklib
-from Products.ZenUtils.Utils import monkeypatch
 from Products.ZenUtils.Utils import unused
 from . import patches
 

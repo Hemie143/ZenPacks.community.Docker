@@ -1,9 +1,7 @@
 import re
-import math
 import logging
 
 log = logging.getLogger('zen.DockerParsers')
-
 
 
 def parse_docker_output(output, expected_columns):
@@ -18,7 +16,7 @@ def parse_docker_output(output, expected_columns):
     header_line = output[0]
     container_lines = output[1:]
     columns = re.split(r' {2,}', header_line)
-    if not set(expected_columns).issubset((columns)):
+    if not set(expected_columns).issubset(columns):
         log.error('Missing column(s) while parsing output: {}'.format(','.join(list(expected_columns - set(columns)))))
         return []
     column_indexes = {
@@ -87,7 +85,7 @@ def convert_from_human(value, unit):
         multiplier = 1024 ** size_name[unit.replace('I', '')]
     else:
         multiplier = 1000 ** size_name[unit]
-    return (int(float(value) * multiplier))
+    return int(float(value) * multiplier)
 
 
 def stats_pair(metrics_data):

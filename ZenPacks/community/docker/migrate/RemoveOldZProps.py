@@ -30,4 +30,5 @@ class RemoveOldZProps(ZenPackMigration):
         elif count:
             log.info("Removed %d obsolete zProperties", count)
 
+
 RemoveOldZProps()

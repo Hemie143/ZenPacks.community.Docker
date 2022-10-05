@@ -1,16 +1,11 @@
 # stdlib Imports
 import logging
 import re
-import time
-
-from Products.DataCollector.plugins.DataMaps import ObjectMap, RelationshipMap
-from Products.ZenUtils.Utils import prepId
 
 # Zenoss imports
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import PythonDataSourcePlugin
 from ZenPacks.community.Docker.lib.sshclient import SSHClient
-from ZenPacks.community.Docker.lib.parsers import convert_from_human, get_docker_data, stats_pair, stats_single
-from ZenPacks.community.Docker.lib.utils import transform_valid_regex
+from ZenPacks.community.Docker.lib.parsers import get_docker_data, stats_pair, stats_single
 
 # Twisted Imports
 from twisted.internet.defer import returnValue, inlineCallbacks
@@ -100,12 +95,6 @@ class stats(PythonDataSourcePlugin):
     def onSuccess(self, results, config):
         log.debug('Success - results is {}'.format(results))
         data = self.new_data()
-        # now = int(time.time())
-
-        # Get the list of regexes
-        ds0 = config.datasources[0]
-        dockerContainerModeled = ds0.zDockerContainerModeled
-        model_list = transform_valid_regex(dockerContainerModeled)
 
         # Use the docker stats output
         if 'stats' in results:
@@ -116,8 +105,13 @@ class stats(PythonDataSourcePlugin):
                 log.error('Could not collect containers on {}: (code:{}) {}'.format(config.id,
                                                                                     results['stats'].exitCode,
                                                                                     results['stats'].output))
-            # [{'MEM USAGE / LIMIT': '207.6MiB / 19.59GiB', 'MEM %': '1.03%', 'NAME': 'practical_snyder', 'NET I/O': '7.54kB / 2.09kB', 'CPU %': '119.56%', 'PIDS': '27', 'CONTAINER ID': 'e757a32379bb1b6c5bf49c6df203af5ac02a0a2cca6c51877144147fd46e3bbb', 'BLOCK I/O': '0B / 4.33MB'}, {'MEM USAGE / LIMIT': '1.803GiB / 19.59GiB', 'MEM %': '9.20%', 'NAME': 'monorepo-build-FRON-FFM6291-BF-4-1664805967', 'NET I/O': '20.4kB / 6.47kB', 'CPU %': '149.99%', 'PIDS': '45', 'CONTAINER ID': 'e5475b2e819a05f118878ae55c1a2da8b54c3eaedb8580f2938d7b08bf637ef0', 'BLOCK I/O': '106kB / 0B'}]
-            # [{'MEM USAGE / LIMIT': '1.129GiB / 19.59GiB', 'MEM %': '5.76%', 'NAME': 'wizardly_franklin', 'NET I/O': '656B / 0B', 'CPU %': '493.05%', 'PIDS': '46', 'CONTAINER ID': '1a6c6fee5a9c66d4da118dce7fd12f85fd2f05a39aa8a3db92e0bc442a68a8a5', 'BLOCK I/O': '108MB / 24.6kB'}, {'MEM USAGE / LIMIT': '2.729GiB / 19.59GiB', 'MEM %': '13.93%', 'NAME': 'monorepo-test-FRON-FFM-TES2-6218-1664807474', 'NET I/O': '80.2MB / 6.87MB', 'CPU %': '103.48%', 'PIDS': '43', 'CONTAINER ID': 'f107b2b852e5b327a8abc35e6fcb6498b052782ce14252665cbbeabdd6251897', 'BLOCK I/O': '489MB / 192GB'}]
+            # [{'MEM USAGE / LIMIT': '1.129GiB / 19.59GiB', 'MEM %': '5.76%', 'NAME': 'wizardly_franklin',
+            # 'NET I/O': '656B / 0B', 'CPU %': '493.05%', 'PIDS': '46',
+            # 'CONTAINER ID': '1a6c6fee5a9c66d4da118dce7fd12f85fd2f05a39aa8a3db92e0bc442a68a8a5',
+            # 'BLOCK I/O': '108MB / 24.6kB'}, {'MEM USAGE / LIMIT': '2.729GiB / 19.59GiB', 'MEM %': '13.93%',
+            # 'NAME': 'monorepo-test-FRON-FFM-TES2-6218-1664807474', 'NET I/O': '80.2MB / 6.87MB', 'CPU %': '103.48%',
+            # 'PIDS': '43', 'CONTAINER ID': 'f107b2b852e5b327a8abc35e6fcb6498b052782ce14252665cbbeabdd6251897',
+            # 'BLOCK I/O': '489MB / 192GB'}]
 
             # Parse the named containers
             for ds in config.datasources:
@@ -173,7 +167,6 @@ class stats(PythonDataSourcePlugin):
         metrics['stats_numprocs'] = stats_single(container_stats["PIDS"])
         metrics['stats_numcontainers'] = 1
         return metrics
-
 
     @staticmethod
     def init_metrics():

@@ -20,7 +20,9 @@ classes:
       num_containers:
         label: Active containers
         type: int
-        default: 0
+        datapoint: stats_numcontainers
+        datapoint_default: 0
+        datapoint_cached: true
         grid_display: true
         order: 1
       regex:

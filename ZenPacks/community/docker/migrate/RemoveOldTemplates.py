@@ -20,7 +20,6 @@ class RemoveOldTemplates(ZenPackMigration):
     version = Version(2, 0, 0)
 
     def migrate(self, pack):
-        # devices = pack.getDmdRoot("Devices/Server/SSH")
         dc = pack.dmd.Devices.Server.SSH
         log.info("Removing old Docker monitoring template")
         for template in OLD_TEMPLATES:
@@ -28,3 +27,6 @@ class RemoveOldTemplates(ZenPackMigration):
                 dc.manage_deleteRRDTemplates(ids=[template])
             except Exception:
                 pass
+
+
+RemoveOldTemplates()

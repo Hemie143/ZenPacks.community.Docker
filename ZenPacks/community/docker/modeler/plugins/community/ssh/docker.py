@@ -60,10 +60,10 @@ class docker(PythonPlugin):
         """Asynchronously collect data from device. Return a deferred."""
         log.info('Collecting docker containers for device {}'.format(device.id))
 
-        if (device.zCommandUsername == ''):
+        if device.zCommandUsername == '':
             log.warn('zCommandUsername is empty.')
             returnValue(None)
-        if (device.zCommandPassword == ''):
+        if device.zCommandPassword == '':
             log.warn('zCommandPassword is empty, trying key authentication using %s', device.zKeyPath)
         keyPath = os.path.expanduser(device.zKeyPath)
         if os.path.isfile(keyPath):
@@ -98,7 +98,6 @@ class docker(PythonPlugin):
                 log.error("{} {} docker modeler error: {}".format(device.id, self.name(), e))
         returnValue(results)
 
-
     def process(self, device, results, log):
         """Process results. Return iterable of datamaps or None."""
         rm = []
@@ -107,11 +106,10 @@ class docker(PythonPlugin):
         return rm
 
     def model_containers(self, device, result):
-        # [{'STATUS': 'Up 52 seconds', 'CREATED': '53 seconds ago', 'IMAGE': 'docker.fednot.be:5000/monorepo-install:FRON-FFM-6191', 'COMMAND': '"/usr/local/bin/mvn-entrypoint.sh ./tools/bamboo/build.sh 6191 NA NA AX23C0LVSTUAEGXJMY36 C0vp5TmSHLxoQrL+qy=7B0dpYGkbqHzNp9olzG7m 2 2"', 'NAMES': 'monorepo-build-FRON-FFM-BUIL2-6191-1664443247', 'CONTAINER ID': '5b16dcbe5ee1e9465856f166995d31f51c40ef98628c1914bbfc77b568215ada', 'PORTS': ''}]
         if result.exitCode > 0:
             log.error('Could not run docker (exitcode={}) - Error: {}'.format(result.exitCode, result.stderr))
-        zDockerContainerModeled = getattr(device, 'zDockerContainerModeled', [])
-        model_list = transform_valid_regex(zDockerContainerModeled)
+        dockerContainerModeled = getattr(device, 'zDockerContainerModeled', [])
+        model_list = transform_valid_regex(dockerContainerModeled)
 
         # Model the containers
         rm = []
@@ -124,8 +122,8 @@ class docker(PythonPlugin):
                 continue
             try:
                 re.compile(name)
-            except:
-                log.warning('Invalid regex in zDockerContainerModeled: {}'.format(name))
+            except Exception as e:
+                log.warning('Invalid regex in zDockerContainerModeled: {} - Exception: {}'.format(name, e))
                 continue
             c_instance = ObjectMap()
             instance_id = prepId('container_{}'.format(name))
