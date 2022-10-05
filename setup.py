@@ -51,7 +51,7 @@ setup(
     # is modified by zenoss when the ZenPack edit page is submitted.  Zenoss
     # tries to put add/delete the names it manages at the beginning of this
     # list, so any manual additions should be added to the end.  Things will
-    # go poorly if this line is broken into multiple lines or modified to
+    # go poorly if this line is broken into multiple lines or modified too
     # dramatically.
     install_requires=INSTALL_REQUIRES,
 
